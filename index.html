@@ -18,6 +18,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Supabase: fuente remota; Excel/CSV permanece como respaldo manual -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.5s ease; }
@@ -1429,11 +1431,47 @@ html[data-vea-theme="light"] #canalSituacionZona.text-red-300{color:#991b1b!impo
 .vea-alerta-modal-fila-principal,.vea-alerta-modal-fila-laboratorio{grid-column:1/-1}
 .vea-alerta-modal-etiqueta{color:#94a3b8;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
 .vea-alerta-modal-valor{margin-top:5px;color:#e2e8f0;font-size:12px;font-weight:600;line-height:1.55}
-.vea-alertas-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:12px 16px;border-bottom:1px solid #1e293b;background:rgba(15,23,42,.45)}
+.vea-alertas-resumen-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 16px;border-bottom:1px solid #1e293b;background:rgba(2,6,23,.28)}
+.vea-alerta-resumen-kpi{min-width:0;padding:10px 11px;border:1px solid rgba(56,189,248,.24);border-radius:12px;background:linear-gradient(145deg,rgba(8,47,73,.5),rgba(15,23,42,.62))}
+.vea-alerta-resumen-label{color:#94a3b8;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.vea-alerta-resumen-valor{margin-top:5px;color:#f8fafc;font-size:17px;font-weight:950;line-height:1.1}
+.vea-alertas-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:12px;padding:14px 16px 0}
+.vea-alerta-mapa-panel,.vea-alerta-temas-panel{min-height:150px;padding:14px;border:1px solid rgba(56,189,248,.24);border-radius:14px;background:radial-gradient(circle at 70% 20%,rgba(14,116,144,.24),transparent 45%),rgba(15,23,42,.7)}
+.vea-alerta-mapa-panel{display:flex;flex-direction:column;min-height:100%}
+.vea-alerta-mapa-cuerpo{display:flex;align-items:center;gap:12px;margin-top:12px;min-height:82px;padding:12px;border:1px solid rgba(34,211,238,.2);border-radius:10px;background:linear-gradient(135deg,rgba(8,47,73,.6),rgba(2,6,23,.65))}
+.vea-alerta-mapa-pin{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:50%;background:rgba(34,211,238,.16);color:#67e8f9;font-size:23px}
+.vea-alerta-mapa-grafico{position:relative;display:flex;flex:1;flex-direction:column;margin-top:10px;min-height:350px;padding:0;border:1px solid rgba(34,211,238,.22);border-radius:10px;background:#082f49;overflow:hidden}
+.vea-alerta-mapa-grafico iframe{display:block;width:100%;height:auto;min-height:310px;flex:1;border:0;background:#dbeafe}
+.vea-alerta-mapa-leaflet{width:100%;height:100%;min-height:310px;flex:1;background:#dbeafe}
+.vea-alerta-mapa-leyenda{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;color:#cbd5e1;font-size:10px;font-weight:700;line-height:1.25;background:rgba(2,6,23,.78)}
+.vea-alerta-mapa-leyenda strong{color:#fda4af;font-weight:900}
+.vea-alerta-mapa-leyenda a{color:#67e8f9;text-decoration:underline;text-underline-offset:2px}
+.vea-alerta-detalle-cabecera{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:14px 16px 0;padding:0 0 11px;border-bottom:1px solid #1e293b}
+.vea-alerta-detalle-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:12px;padding:14px 16px}
+.vea-alerta-info-panel{display:grid;gap:10px;align-content:start;padding:14px;border:1px solid rgba(56,189,248,.24);border-radius:14px;background:rgba(15,23,42,.7)}
+.vea-alerta-lugares{padding:10px 11px;border:1px solid rgba(34,211,238,.24);border-radius:10px;background:rgba(8,47,73,.38)}
+.vea-alerta-lugares .vea-alerta-info-valor{color:#a5f3fc}
+.vea-alerta-ubicacion-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin-top:8px}
+.vea-alerta-ubicacion-item{color:#cbd5e1;font-size:10px;font-weight:650;line-height:1.35}
+.vea-alerta-ubicacion-item strong{color:#94a3b8;font-weight:900}
+@media(max-width:480px){.vea-alerta-ubicacion-grid{grid-template-columns:1fr}}
+.vea-alerta-info-bloque{padding-bottom:9px;border-bottom:1px solid rgba(51,65,85,.65)}
+.vea-alerta-info-bloque:last-child{padding-bottom:0;border-bottom:0}
+.vea-alerta-info-etiqueta{color:#94a3b8;font-size:10px;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
+.vea-alerta-info-valor{margin-top:4px;color:#e2e8f0;font-size:12px;font-weight:650;line-height:1.45}
+.vea-alerta-lab-detalle{display:grid;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(51,65,85,.65);color:#cbd5e1;font-size:10px;font-weight:650;line-height:1.4}
+.vea-alerta-lab-detalle strong{color:#94a3b8;font-weight:900}
+.vea-alerta-detalle-nota{margin:0 16px 14px;padding:10px 12px;border:1px solid rgba(245,158,11,.28);border-radius:10px;background:rgba(245,158,11,.08);color:#fcd34d;font-size:10px;font-weight:700;line-height:1.45}
+.vea-alerta-dashboard-titulo{color:#e2e8f0;font-size:11px;font-weight:950;letter-spacing:.05em;text-transform:uppercase}
+.vea-alerta-dashboard-texto{margin-top:4px;color:#cbd5e1;font-size:11px;font-weight:650;line-height:1.45}
+.vea-alerta-temas-lista{display:grid;gap:8px;margin-top:12px;color:#cbd5e1;font-size:11px;font-weight:650;line-height:1.35}
+.vea-alerta-temas-lista span{display:flex;gap:7px;align-items:flex-start}.vea-alerta-temas-lista span::before{content:'✓';color:#67e8f9;font-weight:950}
+.vea-alertas-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;padding:12px 16px;border-bottom:1px solid #1e293b;background:rgba(15,23,42,.45)}
 .vea-alertas-tab{display:flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 10px;border:1px solid #334155;border-radius:10px;color:#94a3b8;font-size:10px;font-weight:900;transition:.2s}
-.vea-alertas-tab[aria-selected="true"][data-categoria="peru"]{background:rgba(239,68,68,.16);border-color:#ef4444;color:#fca5a5}
-.vea-alertas-tab[aria-selected="true"][data-categoria="region"]{background:rgba(245,158,11,.15);border-color:#f59e0b;color:#fcd34d}
-.vea-alertas-tab[aria-selected="true"][data-categoria="mundo"]{background:rgba(59,130,246,.16);border-color:#3b82f6;color:#93c5fd}
+.vea-alertas-subtabs{display:flex;gap:7px;overflow-x:auto;padding:9px 16px;border-bottom:1px solid #1e293b;background:rgba(2,6,23,.35)}
+.vea-alertas-subtab{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;padding:5px 10px;border:1px solid #334155;border-radius:999px;color:#94a3b8;font-size:9px;font-weight:900;white-space:nowrap;transition:.2s}
+.vea-alertas-subtab[aria-selected="true"]{border-color:#22d3ee;background:rgba(8,145,178,.18);color:#a5f3fc}
+.vea-alertas-tab[aria-selected="true"]{background:rgba(8,145,178,.18);border-color:#22d3ee;color:#a5f3fc}
 .vea-alertas-centro{display:block;min-height:420px}
 .vea-alertas-panel-detalle{min-width:0;padding:0 18px 14px}
 .vea-alerta-modal-fila:nth-child(2){border-left:3px solid #f59e0b;padding-left:10px}
@@ -1458,8 +1496,10 @@ html[data-vea-theme="light"] .vea-alertas-control{background:#ffffff;color:#3341
 html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;border-color:#0891b2;color:#0e7490}
 @media(max-width:900px){.vea-alertas-carrusel{grid-template-columns:minmax(0,1fr) auto}.vea-alertas-marca{display:none}.vea-alerta-fecha{display:none}}
 @media(max-width:560px){.vea-alerta-ambito{display:none}.vea-alertas-carrusel{gap:6px;padding:6px 8px}.vea-alerta-enlace{font-size:11px}.vea-alertas-control{width:26px;height:26px}.vea-alertas-detalle{display:grid;min-width:64px}}
-@media(max-width:720px){.vea-alerta-modal-grid{grid-template-columns:1fr}.vea-alerta-modal-fila-principal,.vea-alerta-modal-fila-laboratorio{grid-column:auto}}
-@media(max-width:480px){.vea-alertas-tabs{padding:8px;gap:4px}.vea-alertas-tab{font-size:9px;padding:6px 4px}.vea-alertas-panel-detalle{padding-inline:12px}}
+@media(max-width:720px){.vea-alerta-modal-grid{grid-template-columns:1fr}.vea-alerta-modal-fila-principal,.vea-alerta-modal-fila-laboratorio{grid-column:auto}.vea-alerta-detalle-cabecera{align-items:flex-start;flex-direction:column}.vea-alerta-detalle-grid{grid-template-columns:1fr;padding-inline:12px}.vea-alerta-detalle-nota{margin-inline:12px}}
+@media(max-width:720px){.vea-alertas-resumen-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vea-alertas-dashboard-grid{grid-template-columns:1fr;padding-inline:12px}}
+@media(max-width:900px){.vea-alertas-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:480px){.vea-alertas-tabs{padding:8px;gap:4px}.vea-alertas-tab{font-size:9px;padding:6px 4px}.vea-alertas-subtabs{padding-inline:8px}.vea-alertas-panel-detalle{padding-inline:12px}}
 </style>
     <style>
         /* VEA003 — borde institucional uniforme en tarjetas de gráficos VEA y Hospitalizados */
@@ -1508,7 +1548,7 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
         #contentDashboard .vea-kpis-regulares .flex.items-start.justify-between > p,
         #contentHospitalizados > .grid:first-child .flex.items-start.justify-between > p,
         #ciKpisModulo04 article > div:first-child,
-        #soatKpisCuatro article > div:first-child{white-space:nowrap!important;line-height:1.1!important;font-size:.58rem!important;letter-spacing:.055em!important}
+        #soatKpisCuatro article > div:first-child{white-space:normal!important;line-height:1.1!important;font-size:.58rem!important;letter-spacing:.055em!important;max-width:calc(100% - 2.75rem)!important;min-height:2.2em!important;text-wrap:balance}
         #contentDashboard .vea-kpis-regulares .flex.items-start.justify-between,
         #contentHospitalizados > .grid:first-child .flex.items-start.justify-between{align-items:flex-start}
         /* VEA020 — cabecera KPI compacta: título y período consecutivos */
@@ -1715,6 +1755,9 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                     <button onclick="cambiarTab('tbc')" id="btnTabTbc" data-vea-tab="tbc" class="vea-menu-item vea-menu-item-inactive w-full flex items-center gap-3 px-3 py-2 rounded-xl border text-left text-xs font-bold transition-all">
                         <span class="w-6 text-center shrink-0">07</span><span class="vea-menu-label truncate">TBC</span>
                     </button>
+                    <button onclick="abrirModuloAdministradorVea()" id="btnTabAdministrador" data-vea-tab="administrador" class="vea-menu-item vea-menu-item-inactive w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-amber-500/20 text-left text-xs font-bold transition-all" title="Acceso restringido al administrador">
+                        <span class="w-6 text-center shrink-0">08</span><span class="vea-menu-label truncate">Administrador <span aria-hidden="true">🔒</span></span>
+                    </button>
                             <!-- Ingesta de Datos (ETL) -->
             <div id="veaRepoSidebar" class="vea-repo-sidebar mt-4 pt-4 border-t border-slate-800 flex flex-col gap-2">
                 <button onclick="document.getElementById('excelFileInput').click()" class="w-full bg-indigo-650 hover:bg-indigo-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2 vea-repo-button" title="Ingesta masiva y validación del repositorio epidemiológico">
@@ -1755,27 +1798,31 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
         <div id="modalDetalleAlertaVea" class="hidden fixed inset-0 z-[100001] bg-slate-950/80 backdrop-blur-sm p-4 items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="tituloCentroAlertasF477" onclick="if(event.target===this)veaCerrarDetalleAlertaF475()">
             <div class="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl">
                 <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-800 bg-inherit px-5 py-4">
-                    <div><div class="text-[10px] font-black uppercase tracking-widest text-cyan-400">Vigilancia epidemiológica internacional</div><h2 id="tituloCentroAlertasF477" class="mt-1 text-lg font-black text-white">Centro de Alertas Oficiales</h2><p class="mt-1 text-[10px] font-bold text-slate-500">Selecciona un ámbito y revisa cada comunicación verificada.</p></div>
+                    <div><div class="text-[10px] font-black uppercase tracking-widest text-cyan-400">Vigilancia epidemiológica internacional</div><h2 id="tituloCentroAlertasF477" class="mt-1 text-lg font-black text-white">Centro de Alertas Oficiales</h2><p class="mt-1 text-[10px] font-bold text-slate-500">Fuentes consultadas: CDC/MINSA · OPS/OMS · OMS. La lista depende de las publicaciones oficiales disponibles.</p></div>
                     <button type="button" onclick="veaCerrarDetalleAlertaF475()" class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-700 text-slate-400 hover:text-white" aria-label="Cerrar detalle">×</button>
                 </div>
                 <div class="vea-alertas-tabs" role="tablist" aria-label="Ámbito de las alertas">
-                    <button id="veaTabAlertasPeru" data-categoria="peru" class="vea-alertas-tab" role="tab" aria-selected="true" onclick="veaSeleccionarCategoriaAlertasF477('peru')">🇵🇪 Perú <span id="veaConteoAlertasPeru">(0)</span></button>
-                    <button id="veaTabAlertasRegion" data-categoria="region" class="vea-alertas-tab" role="tab" aria-selected="false" onclick="veaSeleccionarCategoriaAlertasF477('region')">🌎 Región / Vecinos <span id="veaConteoAlertasRegion">(0)</span></button>
-                    <button id="veaTabAlertasMundo" data-categoria="mundo" class="vea-alertas-tab" role="tab" aria-selected="false" onclick="veaSeleccionarCategoriaAlertasF477('mundo')">🌐 Mundo <span id="veaConteoAlertasMundo">(0)</span></button>
+                    <button id="veaTabAlertasAmerica" data-categoria="america" class="vea-alertas-tab" role="tab" aria-selected="true" onclick="veaSeleccionarCategoriaAlertasF477('america')">🌎 América <span id="veaConteoAlertasAmerica">(0)</span></button>
+                    <button id="veaTabAlertasEuropa" data-categoria="europa" class="vea-alertas-tab" role="tab" aria-selected="false" onclick="veaSeleccionarCategoriaAlertasF477('europa')">🌍 Europa <span id="veaConteoAlertasEuropa">(0)</span></button>
+                    <button id="veaTabAlertasAsia" data-categoria="asia" class="vea-alertas-tab" role="tab" aria-selected="false" onclick="veaSeleccionarCategoriaAlertasF477('asia')">🌏 Asia <span id="veaConteoAlertasAsia">(0)</span></button>
+                    <button id="veaTabAlertasAfrica" data-categoria="africa" class="vea-alertas-tab" role="tab" aria-selected="false" onclick="veaSeleccionarCategoriaAlertasF477('africa')">🌍 África <span id="veaConteoAlertasAfrica">(0)</span></button>
+                    <button id="veaTabAlertasOceania" data-categoria="oceania" class="vea-alertas-tab" role="tab" aria-selected="false" onclick="veaSeleccionarCategoriaAlertasF477('oceania')">🌊 Oceanía <span id="veaConteoAlertasOceania">(0)</span></button>
+                    <button id="veaTabAlertasAntartida" data-categoria="antartida" class="vea-alertas-tab" role="tab" aria-selected="false" onclick="veaSeleccionarCategoriaAlertasF477('antartida')">❄ Antártida <span id="veaConteoAlertasAntartida">(0)</span></button>
                 </div>
-                <div class="vea-alertas-centro">
-                    <article class="vea-alertas-panel-detalle">
-                        <div class="border-b border-slate-800 py-4"><div id="veaDetalleAmbito" class="text-[10px] font-black uppercase tracking-widest text-cyan-400">Alerta oficial</div><h3 id="veaDetalleTitulo" class="mt-1 text-base font-black text-white">Selecciona una alerta</h3><p id="veaDetalleFecha" class="mt-1 text-[10px] font-bold text-slate-500"></p><a id="veaDetalleFuenteVisible" href="#" target="_blank" rel="noopener noreferrer" class="vea-alerta-fuente-visible">↗ Abrir publicación oficial actualizada</a></div>
-                        <div class="vea-alerta-modal-grid py-2">
-                            <div class="vea-alerta-modal-fila vea-alerta-modal-fila-principal"><div class="vea-alerta-modal-etiqueta">01 · Evento y situación</div><div id="veaDetalleSituacion" class="vea-alerta-modal-valor"></div></div>
-                            <div class="vea-alerta-modal-fila"><div class="vea-alerta-modal-etiqueta">02 · Área afectada</div><div id="veaDetalleArea" class="vea-alerta-modal-valor"></div></div>
-                            <div class="vea-alerta-modal-fila"><div class="vea-alerta-modal-etiqueta">03 · Acciones recomendadas</div><div id="veaDetalleAcciones" class="vea-alerta-modal-valor"></div></div>
-                            <div class="vea-alerta-modal-fila"><div class="vea-alerta-modal-etiqueta">04 · Vigilancia y notificación</div><div id="veaDetalleVigilancia" class="vea-alerta-modal-valor"></div></div>
-                            <div class="vea-alerta-modal-fila vea-alerta-modal-fila-laboratorio"><div class="vea-alerta-modal-etiqueta">05 · Laboratorio / muestra</div><div id="veaDetalleLaboratorio" class="vea-alerta-modal-valor"></div></div>
-                            <p class="col-span-full mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[10px] font-bold leading-relaxed text-amber-300">Resumen informativo. Antes de actuar, confirme requisitos, definiciones y procedimientos en la publicación oficial vigente.</p>
-                        </div>
-                    </article>
+                <div id="veaSubtabsAlertasF477" class="vea-alertas-subtabs" role="tablist" aria-label="Zona geográfica de las alertas"></div>
+                <div class="vea-alerta-detalle-cabecera"><div><div id="veaDetalleAmbito" class="text-[10px] font-black uppercase tracking-widest text-cyan-400">Alerta oficial</div><h3 id="veaDetalleTitulo" class="mt-1 text-base font-black text-white">Selecciona una alerta</h3><p id="veaDetalleFecha" class="mt-1 text-[10px] font-bold text-slate-500"></p></div><a id="veaDetalleFuenteVisible" href="#" target="_blank" rel="noopener noreferrer" class="vea-alerta-fuente-visible">↗ Abrir publicación oficial actualizada</a></div>
+                <div class="vea-alerta-detalle-grid">
+                    <section class="vea-alerta-mapa-panel" aria-label="Mapa de afectación"><div class="vea-alerta-dashboard-titulo">Mapa de afectación</div><div id="veaDetalleMapaVisual" class="vea-alerta-mapa-grafico" aria-live="polite"><iframe title="Mapa de ubicación de la alerta" src="https://www.openstreetmap.org/export/embed.html?bbox=-81.5%2C-18.5%2C-68.5%2C0.5&amp;layer=mapnik&amp;marker=-12.05%2C-77.04" loading="lazy"></iframe><div class="vea-alerta-mapa-leyenda"><strong>Perú</strong><span>Área afectada · <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></span></div></div></section>
+                    <section class="vea-alerta-info-panel" aria-label="Análisis y acciones de la alerta">
+                        <div class="vea-alerta-lugares"><div class="vea-alerta-info-etiqueta">Lugares afectados por la alerta</div><div id="veaDetalleLugares" class="vea-alerta-info-valor">Ubicación según la publicación oficial.</div><div id="veaDetalleUbicacion" class="vea-alerta-ubicacion-grid" aria-label="Detalle geográfico de la alerta"></div></div>
+                        <div class="vea-alerta-info-bloque"><div class="vea-alerta-info-etiqueta">01 · Análisis de la alerta</div><div id="veaDetalleSituacion" class="vea-alerta-info-valor"></div></div>
+                        <div class="vea-alerta-info-bloque"><div class="vea-alerta-info-etiqueta">02 · Hallazgos</div><div id="veaDetalleHallazgos" class="vea-alerta-info-valor">Revisar el comportamiento, la zona afectada y la población expuesta según la publicación oficial.</div></div>
+                        <div class="vea-alerta-info-bloque"><div class="vea-alerta-info-etiqueta">03 · Acciones recomendadas</div><div id="veaDetalleAcciones" class="vea-alerta-info-valor"></div></div>
+                        <div class="vea-alerta-info-bloque"><div class="vea-alerta-info-etiqueta">04 · Laboratorio / toma de muestra</div><div id="veaDetalleLaboratorio" class="vea-alerta-info-valor"></div><div class="vea-alerta-lab-detalle"><div><strong>Cómo se toma:</strong> <span id="veaDetalleTomaMuestra">Consultar el protocolo oficial vigente.</span></div><div><strong>Material utilizado:</strong> <span id="veaDetalleMaterialMuestra">Consultar el protocolo oficial vigente.</span></div></div></div>
+                        <div class="vea-alerta-info-bloque"><div class="vea-alerta-info-etiqueta">05 · Vigilancia y notificación</div><div id="veaDetalleVigilancia" class="vea-alerta-info-valor"></div></div>
+                    </section>
                 </div>
+                <div class="vea-alerta-detalle-nota">Resumen informativo. Antes de actuar, confirme requisitos, definiciones, toma de muestra y procedimientos en la publicación oficial vigente.</div>
             </div>
         </div>
         <!-- Banda de Alerta y Semáforo Clínico -->
@@ -2947,6 +2994,41 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                 <p class="vea-module-identity-description">Seguimiento epidemiológico de los registros de tuberculosis disponibles en el repositorio activo.</p>
             </section>
             <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-sm"><p id="estadoModuloTbc" class="text-xs text-slate-400">Sin datos cargados</p></div>
+        </div>
+
+        <div id="contentAdministrador" class="hidden space-y-6">
+            <section data-vea-module-identity="08" class="vea-module-identity">
+                <div class="vea-module-identity-kicker">Módulo 08 · Acceso restringido</div>
+                <h2 class="vea-module-identity-title">Administrador</h2>
+                <p class="vea-module-identity-description">Panel reservado para la cuenta institucional autorizada.</p>
+            </section>
+            <section id="veaAdminLoginPanel" class="max-w-xl bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/10 text-amber-300">🔐</div>
+                    <div><h3 class="text-lg font-black text-slate-100">Acceso de administrador</h3><p class="mt-1 text-xs leading-5 text-slate-400">Escriba solo su usuario y su contraseña institucional. El acceso principal no depende del envío de correos.</p></div>
+                </div>
+                <form id="veaAdminLoginForm" class="mt-5 space-y-3" onsubmit="veaIniciarSesionAdminVea(event)">
+                    <label for="veaAdminUsuario" class="block text-xs font-black uppercase tracking-wide text-slate-400">Usuario institucional</label>
+                    <div class="flex items-stretch rounded-xl border border-slate-700 bg-slate-900/70 focus-within:border-cyan-400 overflow-hidden">
+                        <input id="veaAdminUsuario" name="usuario" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="uesa" class="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm font-bold text-slate-100 outline-none" aria-describedby="veaAdminDominio">
+                        <span id="veaAdminDominio" class="flex items-center border-l border-slate-700 px-3 text-xs font-bold text-slate-500">@hospitaldeventanilla.gob.pe</span>
+                    </div>
+                    <label for="veaAdminPassword" class="block pt-2 text-xs font-black uppercase tracking-wide text-slate-400">Contraseña institucional</label>
+                    <div class="relative"><input id="veaAdminPassword" name="password" type="password" autocomplete="current-password" placeholder="Contraseña" required class="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-3 pr-12 text-sm font-bold text-slate-100 outline-none focus:border-cyan-400"><button type="button" onclick="veaAlternarClaveAdminVea()" class="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400 hover:text-cyan-300" aria-label="Mostrar u ocultar contraseña"><span id="veaAdminPasswordEye" aria-hidden="true">👁</span></button></div>
+                    <button type="submit" class="w-full rounded-xl bg-cyan-600 px-4 py-3 text-sm font-black text-white transition hover:bg-cyan-500">Iniciar sesión</button>
+                    <button type="button" onclick="veaSolicitarCodigoAdminVea(event)" class="w-full rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:bg-slate-800">Usar enlace por correo como alternativa</button>
+                </form>
+                <form id="veaAdminCodigoPanel" class="mt-4 hidden space-y-3" onsubmit="veaVerificarCodigoAdminVea(event)">
+                    <label for="veaAdminCodigo" class="block text-xs font-black uppercase tracking-wide text-slate-400">Código recibido</label>
+                    <input id="veaAdminCodigo" name="codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Código de un solo uso" class="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-3 text-sm font-bold text-slate-100 outline-none focus:border-cyan-400">
+                    <button type="submit" class="w-full rounded-xl border border-cyan-500/40 px-4 py-3 text-sm font-black text-cyan-200 transition hover:bg-cyan-500/10">Verificar acceso</button>
+                </form>
+                <p id="veaAdminEstado" class="mt-4 text-xs font-bold text-slate-400" role="status" aria-live="polite"></p>
+            </section>
+            <section id="veaAdminProtegido" class="hidden bg-slate-950 border border-emerald-500/30 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between gap-4"><div><div class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Acceso verificado</div><h3 class="mt-1 text-lg font-black text-slate-100">Panel de administración</h3><p class="mt-1 text-xs text-slate-400">Sesión autorizada para uesa@hospitaldeventanilla.gob.pe.</p></div><button type="button" onclick="veaCerrarSesionAdminVea()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 hover:bg-slate-800">Cerrar sesión</button></div>
+                <div class="mt-5 rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-300">Este espacio queda preparado para las funciones administrativas que definamos a continuación.</div>
+            </section>
         </div>
 
         <div id="contentConfiguracion" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-sm">
@@ -7242,7 +7324,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                 });
             }
             tabActiva = tab;
-            const tabsMenuVea = ['dashboard', 'datos', 'casos', 'canal', 'tabla', 'hospitalizados', 'soat', 'vih', 'tbc', 'configuracion'];
+            const tabsMenuVea = ['dashboard', 'datos', 'casos', 'canal', 'tabla', 'hospitalizados', 'soat', 'vih', 'tbc', 'administrador', 'configuracion'];
 
             tabsMenuVea.forEach(t => {
                 const btn = document.querySelector(`[data-vea-tab="${t}"]`);
@@ -10342,6 +10424,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
         // MÓDULO 05 · SOAT — capa de visualización aislada.
         // Consume las 93 columnas originales que parseSOAT() ya conserva; no reprocesa Excel.
         const SOAT_MESES_V1 = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
+        const SOAT_MESES_LARGO_V1 = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Setiembre','Octubre','Noviembre','Diciembre'];
         const SOAT_GRUPOS_EDAD_V1 = ['<1 año','1–5 años','6–11 años','12–17 años','18–29 años','30–59 años','60+ años','Sin dato'];
         const SOAT_RANGOS_HORA_V1 = ['00:00–05:59','06:00–11:59','12:00–17:59','18:00–23:59','Sin dato'];
         const soatEstadoV1 = { datasetRef:null, filas:[], aniosDisponibles:[], semanasDisponibles:[], seleccionAnios:[], mes:'Todos', semana:'Todas', firmaVisual:null, frameVisual:null, duplicadosExactos:0 };
@@ -10566,7 +10649,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             const registradosDetalle=document.getElementById('soatKpiRegistradosDetalle');if(registradosDetalle)registradosDetalle.textContent=`${mesActivo} · Año activo`;
             const mesPrincipal=soatConteoV1(filasAnio,'mes',SOAT_MESES_V1.map((_,i)=>i+1))[0];
             const mesAnio=document.getElementById('soatKpiMesAnio');if(mesAnio)mesAnio.textContent=Number.isFinite(anioActivo)?String(anioActivo):'Sin año activo';
-            const km=document.getElementById('soatKpiMes');if(km)km.textContent=mesPrincipal?SOAT_MESES_V1[Number(mesPrincipal[0])-1]||'Sin dato':'—';
+            const km=document.getElementById('soatKpiMes');if(km)km.textContent=mesPrincipal?SOAT_MESES_LARGO_V1[Number(mesPrincipal[0])-1]||'Sin dato':'—';
             const kmd=document.getElementById('soatKpiMesDetalle');if(kmd)kmd.textContent=mesPrincipal?`${mesPrincipal[1].toLocaleString()} casos · Mayor concentración`:'0 casos · Mayor concentración';
             const edadPrincipal=soatConteoV1(filasAnio,'grupoEdad',SOAT_GRUPOS_EDAD_V1)[0];
             const edadAnio=document.getElementById('soatKpiEdadAnio');if(edadAnio)edadAnio.textContent=Number.isFinite(anioActivo)?String(anioActivo):'Sin año activo';
@@ -10672,6 +10755,155 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
         const VEA_SOAT_REGLA_PERIODO_VERSION = 'periodo-oficial-v1';
         const VEA_SOAT_SNAPSHOT_URL = '/data/soat-actualizacion-20260902.json';
         let veaSupabaseClient = null;
+
+        // VEA ADMIN — acceso institucional restringido con usuario corto + dominio fijo.
+        const VEA_ADMIN_USUARIO_AUTORIZADO = 'uesa';
+        const VEA_ADMIN_EMAIL_AUTORIZADO = 'uesa@hospitaldeventanilla.gob.pe';
+        const VEA_ADMIN_REDIRECT_URL = 'https://vea001-colores-institucionales.ckarlos2003.chatgpt.site';
+        let veaAdminEmailPendiente = '';
+        let veaAdminAuthListenerRegistrado = false;
+        const VEA_ADMIN_COOLDOWN_MS = 60000;
+
+        function veaAdminNormalizarUsuario(valor) {
+            return String(valor || '').trim().toLowerCase().replace(/\s+/g, '').split('@')[0];
+        }
+
+        function veaPrepararCampoAdminVea() {
+            const campo = document.getElementById('veaAdminUsuario');
+            if (!campo || campo.dataset.veaNormalizado === '1') return;
+            campo.dataset.veaNormalizado = '1';
+            campo.addEventListener('input', () => {
+                const usuario = veaAdminNormalizarUsuario(campo.value);
+                if (campo.value.includes('@')) campo.value = usuario;
+            });
+            if (campo.value.includes('@')) campo.value = veaAdminNormalizarUsuario(campo.value);
+        }
+
+        function veaAdminEstado(mensaje, tipo = 'neutral') {
+            const nodo = document.getElementById('veaAdminEstado');
+            if (!nodo) return;
+            nodo.textContent = mensaje || '';
+            nodo.className = `mt-4 text-xs font-bold ${tipo === 'error' ? 'text-rose-300' : tipo === 'ok' ? 'text-emerald-300' : 'text-slate-400'}`;
+        }
+
+        function veaAplicarSesionAdminVea(session) {
+            const login = document.getElementById('veaAdminLoginPanel');
+            const protegido = document.getElementById('veaAdminProtegido');
+            if (!login || !protegido) return;
+            const email = String(session?.user?.email || '').trim().toLowerCase();
+            const autorizado = email === VEA_ADMIN_EMAIL_AUTORIZADO;
+            login.classList.toggle('hidden', autorizado);
+            protegido.classList.toggle('hidden', !autorizado);
+            if (autorizado) veaAdminEstado('Acceso verificado correctamente.', 'ok');
+            else if (session && email) veaAdminEstado('Esta cuenta no está autorizada para el módulo Administrador.', 'error');
+        }
+
+        async function veaInicializarAdministradorVea() {
+            try {
+                veaPrepararCampoAdminVea();
+                await esperarSupabaseVea(5000);
+                if (!veaSupabaseClient && window.supabase?.createClient) veaSupabaseClient = window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY);
+                if (!veaSupabaseClient?.auth) return;
+                const actual = await veaSupabaseClient.auth.getSession();
+                veaAplicarSesionAdminVea(actual?.data?.session || null);
+                if (!veaAdminAuthListenerRegistrado) {
+                    veaAdminAuthListenerRegistrado = true;
+                    veaSupabaseClient.auth.onAuthStateChange((_evento, session) => veaAplicarSesionAdminVea(session));
+                }
+            } catch (error) {
+                veaAdminEstado('No se pudo comprobar la sesión. Intente nuevamente.', 'error');
+            }
+        }
+
+        function abrirModuloAdministradorVea() {
+            cambiarTab('administrador');
+            veaInicializarAdministradorVea();
+        }
+
+        async function veaSolicitarCodigoAdminVea(event) {
+            event?.preventDefault();
+            const usuario = veaAdminNormalizarUsuario(document.getElementById('veaAdminUsuario')?.value);
+            if (usuario !== VEA_ADMIN_USUARIO_AUTORIZADO) {
+                veaAdminEstado('Usuario no autorizado. Use el usuario institucional asignado.', 'error');
+                return;
+            }
+            const ultimoEnvio = Number(localStorage.getItem('veaAdminOtpLastSent') || 0);
+            const restante = VEA_ADMIN_COOLDOWN_MS - (Date.now() - ultimoEnvio);
+            if (restante > 0) {
+                veaAdminEstado(`Espera ${Math.ceil(restante / 1000)} segundos antes de solicitar otro enlace.`, 'error');
+                return;
+            }
+            veaAdminEmailPendiente = `${usuario}@hospitaldeventanilla.gob.pe`;
+            try {
+                await veaInicializarAdministradorVea();
+                if (!veaSupabaseClient?.auth) throw new Error('Servicio de autenticación no disponible.');
+                veaAdminEstado('Enviando verificación al correo institucional…');
+                const respuesta = await veaSupabaseClient.auth.signInWithOtp({ email: veaAdminEmailPendiente, options: { shouldCreateUser: false, emailRedirectTo: VEA_ADMIN_REDIRECT_URL } });
+                if (respuesta.error) throw respuesta.error;
+                localStorage.setItem('veaAdminOtpLastSent', String(Date.now()));
+                veaAdminEstado('Revisa tu correo institucional y pulsa “Sign in”. El enlace te devolverá al sitio publicado.', 'ok');
+            } catch (error) {
+                const detalle = String(error?.message || '').toLowerCase();
+                if (detalle.includes('rate limit')) veaAdminEstado('Supabase limitó temporalmente los envíos. Espera unos minutos y solicita un solo enlace nuevo.', 'error');
+                else veaAdminEstado(`No se pudo enviar la verificación: ${error?.message || 'servicio no disponible'}`, 'error');
+            }
+        }
+
+        async function veaIniciarSesionAdminVea(event) {
+            event?.preventDefault();
+            const usuario = veaAdminNormalizarUsuario(document.getElementById('veaAdminUsuario')?.value);
+            const password = String(document.getElementById('veaAdminPassword')?.value || '');
+            if (usuario !== VEA_ADMIN_USUARIO_AUTORIZADO) {
+                veaAdminEstado('Usuario no autorizado.', 'error');
+                return;
+            }
+            if (!password) {
+                veaAdminEstado('Ingrese la contraseña institucional.', 'error');
+                return;
+            }
+            try {
+                await veaInicializarAdministradorVea();
+                if (!veaSupabaseClient?.auth) throw new Error('Servicio de autenticación no disponible.');
+                veaAdminEstado('Validando acceso…');
+                const respuesta = await veaSupabaseClient.auth.signInWithPassword({ email: VEA_ADMIN_EMAIL_AUTORIZADO, password });
+                if (respuesta.error) throw respuesta.error;
+                veaAplicarSesionAdminVea(respuesta.data?.session || null);
+            } catch (error) {
+                veaAdminEstado('Usuario o contraseña incorrectos.', 'error');
+            }
+        }
+
+        function veaAlternarClaveAdminVea() {
+            const campo = document.getElementById('veaAdminPassword');
+            const icono = document.getElementById('veaAdminPasswordEye');
+            if (!campo) return;
+            const visible = campo.type === 'text';
+            campo.type = visible ? 'password' : 'text';
+            if (icono) icono.textContent = visible ? '👁' : '🙈';
+        }
+
+        async function veaVerificarCodigoAdminVea(event) {
+            event?.preventDefault();
+            const codigo = String(document.getElementById('veaAdminCodigo')?.value || '').trim();
+            if (!veaAdminEmailPendiente || !codigo) {
+                veaAdminEstado('Ingrese el código recibido.', 'error');
+                return;
+            }
+            try {
+                if (!veaSupabaseClient?.auth) throw new Error('Servicio de autenticación no disponible.');
+                const respuesta = await veaSupabaseClient.auth.verifyOtp({ email: veaAdminEmailPendiente, token: codigo, type: 'email' });
+                if (respuesta.error) throw respuesta.error;
+                veaAplicarSesionAdminVea(respuesta.data?.session || null);
+            } catch (error) {
+                veaAdminEstado(`Código no válido o expirado: ${error?.message || 'intente nuevamente'}`, 'error');
+            }
+        }
+
+        async function veaCerrarSesionAdminVea() {
+            try { if (veaSupabaseClient?.auth) await veaSupabaseClient.auth.signOut(); } finally { veaAplicarSesionAdminVea(null); veaAdminEstado('Sesión cerrada.'); }
+        }
+
+        window.addEventListener('load', () => setTimeout(veaInicializarAdministradorVea, 250));
 
         async function veaSupabaseLeerTablaCompleta(tabla) {
             if (!veaSupabaseClient) throw new Error('Cliente Supabase no disponible.');
@@ -10917,17 +11149,34 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             {ambito:'PERÚ', titulo:'Incremento de casos de sarampión — Alerta Epidemiológica AE-CDC N.° 007-2026', fecha:'21 ago 2026 · MINSA/CDC Perú', area:'Ámbito nacional. La publicación oficial identifica la situación y las áreas que requieren vigilancia reforzada.', situacion:'Alerta epidemiológica emitida ante el incremento de casos de sarampión.', acciones:'Reforzar la detección oportuna, revisar el estado de preparación institucional y aplicar las acciones indicadas por MINSA/CDC Perú.', vigilancia:'Notificar e investigar conforme a la normativa nacional vigente y a los plazos establecidos para sarampión.', laboratorio:'Aplicar el protocolo nacional vigente para sarampión. Confirmar tipo de muestra, momento, conservación, embalaje y envío en el documento oficial antes de realizar la toma.', url:'https://www.gob.pe/institucion/minsa/noticias/1433490-ministerio-de-salud-emite-alerta-epidemiologica-por-incremento-de-casos-de-sarampion'},
             {ambito:'PERÚ', titulo:'Riesgo de brotes nosocomiales de sarampión en establecimientos de salud', fecha:'24 ago 2026 · MINSA', area:'Establecimientos de salud del ámbito nacional; revisar el documento para la delimitación y disposiciones completas.', situacion:'Alerta dirigida a los establecimientos de salud por el riesgo elevado de brotes nosocomiales de sarampión.', acciones:'Fortalecer triaje, identificación oportuna, medidas de prevención y respuesta institucional según la alerta oficial.', vigilancia:'Activar la vigilancia y comunicación institucional conforme a las disposiciones de MINSA/CDC Perú.', laboratorio:'Seguir el protocolo oficial de sarampión y coordinar con el laboratorio de referencia. Verificar requisitos de muestra y transporte en la fuente oficial.', url:'https://www.gob.pe/institucion/minsa/informes-publicaciones/8516521-alerta-epidemiologica-ante-el-brote-nosocomial-de-sarampion'},
             {ambito:'REGIÓN', titulo:'Fiebre amarilla: transmisión sostenida en Bolivia, Colombia, Perú y Venezuela', fecha:'13 mar 2026 · OPS/OMS', area:'Bolivia, Colombia, Perú y Venezuela, según la comunicación regional de OPS/OMS.', situacion:'OPS informó transmisión sostenida de fiebre amarilla en partes de América del Sur.', acciones:'Revisar preparación, vigilancia, vacunación y respuesta conforme a las recomendaciones oficiales aplicables a cada país.', vigilancia:'Fortalecer vigilancia epidemiológica y coordinación transfronteriza según el documento de OPS/OMS.', laboratorio:'Aplicar el algoritmo y protocolo nacional vigente para fiebre amarilla; confirmar requisitos de laboratorio en la autoridad sanitaria correspondiente.', url:'https://www.paho.org/en/news/13-3-2026-paho-reports-sustained-yellow-fever-transmission-parts-south-america'},
+            {ambito:'REGIÓN', subambito:'América', titulo:'Sarampión en la Región de las Américas', fecha:'29 may 2026 · OPS/OMS', area:'Países y territorios de la Región de las Américas con incremento de casos.', situacion:'Alerta epidemiológica regional por aumento de casos de sarampión durante 2025 y 2026.', acciones:'Reforzar vacunación, vigilancia y respuesta rápida según el riesgo de cada país.', vigilancia:'Fortalecer búsqueda activa, investigación y notificación de casos sospechosos.', laboratorio:'Consultar el protocolo nacional de sarampión para toma y envío de muestras.', url:'https://www.paho.org/en/documents/epidemiological-alert-measles-americas-region-29-may-2026'},
+            {ambito:'REGIÓN', subambito:'Latinoamérica', titulo:'Chikungunya: actualización epidemiológica en las Américas', fecha:'10 feb 2026 · OPS/OMS', area:'Países y territorios de las Américas con transmisión o incremento de casos.', situacion:'Aumento sostenido de casos de chikungunya entre finales de 2025 e inicios de 2026.', acciones:'Intensificar vigilancia, control vectorial y comunicación de riesgos.', vigilancia:'Notificar y analizar casos según las definiciones nacionales vigentes.', laboratorio:'Aplicar los procedimientos nacionales para diagnóstico de arbovirosis.', url:'https://www.paho.org/en/documents/epidemiological-alert-chikungunya-10-february-2026'},
+            {ambito:'MUNDO', subambito:'República Democrática del Congo', titulo:'Enfermedad por virus del Ébola Bundibugyo', fecha:'28 ago 2026 · OMS', area:'Provincias afectadas de la República Democrática del Congo; Uganda permanece en riesgo de casos importados.', situacion:'La OMS mantiene seguimiento de un brote activo con riesgo de transmisión transfronteriza.', acciones:'Mantener vigilancia reforzada, preparación clínica, rastreo de contactos y coordinación internacional.', vigilancia:'Seguir los comunicados OMS y de las autoridades nacionales afectadas.', laboratorio:'Usar los protocolos oficiales de filovirus y coordinar con laboratorios de referencia.', url:'https://www.who.int/emergencies/disease-outbreak-news/item/2026-DON616'},
+            {ambito:'MUNDO', subambito:'India', titulo:'Enfermedad por virus Nipah', fecha:'25 jun 2026 · OMS', area:'India, según Disease Outbreak News de la OMS.', situacion:'Evento internacional publicado por la OMS para vigilancia y respuesta.', acciones:'Revisar recomendaciones de prevención, vigilancia y control en la comunicación oficial.', vigilancia:'Evaluar riesgo de importación y mantener vigilancia de viajeros y contactos cuando corresponda.', laboratorio:'Confirmar requisitos de muestra y bioseguridad en la guía oficial vigente.', url:'https://www.who.int/emergencies/disease-outbreak-news/item/2026-DON609'},
+            {ambito:'MUNDO', subambito:'Global', titulo:'Fiebre amarilla: situación global', fecha:'24 jun 2026 · OMS', area:'Evento global con información de regiones y países afectados en la publicación oficial.', situacion:'Disease Outbreak News de la OMS sobre fiebre amarilla a nivel mundial.', acciones:'Revisar vacunación, vigilancia y medidas de prevención de acuerdo con la zona afectada.', vigilancia:'Consultar la actualización oficial antes de tomar decisiones sanitarias.', laboratorio:'Aplicar el protocolo nacional y la orientación OMS correspondiente.', url:'https://www.who.int/emergencies/disease-outbreak-news/item/2026-DON610'},
+            {ambito:'MUNDO', subambito:'Multi-país', titulo:'Clúster de hantavirus asociado a viaje en crucero', fecha:'4 may 2026 · OMS', area:'Evento multinacional comunicado por la OMS con casos vinculados a un crucero.', situacion:'Evento internacional bajo investigación y seguimiento mediante los canales del Reglamento Sanitario Internacional.', acciones:'Revisar vigilancia de contactos, coordinación internacional y medidas de prevención.', vigilancia:'Seguir las actualizaciones OMS y las indicaciones de las autoridades nacionales.', laboratorio:'Confirmar diagnóstico y bioseguridad en los protocolos oficiales.', url:'https://www.who.int/emergencies/disease-outbreak-news/item/2026-DON599'},
             {ambito:'AMÉRICAS', titulo:'Circulación simultánea de influenza estacional y virus respiratorio sincitial', fecha:'9 ene 2026 · OPS/OMS', area:'Región de las Américas. La situación específica debe verificarse por país y territorio.', situacion:'Alerta regional sobre circulación simultánea de influenza estacional y virus respiratorio sincitial.', acciones:'Mantener vigilancia de infecciones respiratorias y revisar las recomendaciones de preparación y respuesta de OPS/OMS.', vigilancia:'Aplicar definiciones, flujos de notificación y vigilancia respiratoria vigentes en cada país.', laboratorio:'Utilizar los protocolos nacionales vigentes para toma, conservación y envío de muestras respiratorias; confirmar indicaciones en la fuente oficial.', url:'https://www.paho.org/en/documents/epidemiological-alert-simultaneous-circulation-seasonal-influenza-and-respiratory'},
             {ambito:'MUNDO', titulo:'Noticias oficiales recientes sobre brotes y emergencias sanitarias', fecha:'OMS · actualización continua', area:'Eventos internacionales publicados por la OMS; consultar cada comunicación para conocer países y zonas afectadas.', situacion:'Repositorio oficial de noticias sobre eventos agudos de salud pública confirmados o potenciales.', acciones:'Abrir la comunicación específica y evaluar su relevancia para la vigilancia nacional e institucional.', vigilancia:'Aplicar las disposiciones de la autoridad sanitaria nacional ante eventos internacionales de interés.', laboratorio:'La toma de muestras depende del evento. No realizar procedimientos basándose solo en este resumen; consultar la guía oficial específica.', url:'https://www.who.int/emergencies/disease-outbreak-news'},
             {ambito:'MUNDO', titulo:'Panel público de emergencias sanitarias de la Organización Mundial de la Salud', fecha:'OMS · consulta oficial', area:'Panel internacional de eventos y emergencias de salud pública.', situacion:'Fuente de consulta para revisar eventos sanitarios internacionales reportados por la OMS.', acciones:'Consultar el evento de interés, su fecha de actualización y las recomendaciones oficiales disponibles.', vigilancia:'Valorar señales internacionales junto con CDC Perú y los canales nacionales oficiales.', laboratorio:'Cada evento requiere un protocolo específico. Verificar siempre la guía de la OMS y la normativa nacional antes de tomar o enviar muestras.', url:'https://extranet.who.int/publicemergency'}
         ];
         const VEA_ALERTAS_RESPALDO_F488 = VEA_ALERTAS_OFICIALES_F474.map(alerta => ({...alerta}));
+        const VEA_FUENTES_ALERTAS_F490 = [
+            {nombre:'CDC Perú · EpiPublic', url:'https://epipublic.dge.gob.pe/publico/listado/7/2026/0'},
+            {nombre:'MINSA · Colección oficial', url:'https://www.gob.pe/institucion/minsa/colecciones/1493-alertas-epidemiologicas'},
+            {nombre:'GERESA/DIRESA regional', url:'https://www.gob.pe/'},
+            {nombre:'OPS/OMS · Alertas epidemiológicas', url:'https://www.paho.org/en/epidemiological-alerts-and-updates'},
+            {nombre:'OMS · Disease Outbreak News', url:'https://www.who.int/emergencies/disease-outbreak-news'},
+        ];
+        const VEA_ALERTAS_CACHE_KEY_F490 = 'VEA_ALERTAS_CACHE_F490';
+        const VEA_ALERTAS_CACHE_MAX_MS_F490 = 7 * 24 * 60 * 60 * 1000;
         let veaIndiceAlertaF474 = 0;
         let veaAlertasPausadasF474 = false;
-        let veaCategoriaActivaF477 = 'peru';
+        let veaCategoriaActivaF477 = 'america';
+        let veaSubambitoActivoF477 = '';
         let veaIndiceDetalleF477 = 0;
         let veaPausaPreviaCentroF477 = false;
         let veaUltimaConsultaAlertasF486 = 0;
+        let veaMapaLeafletF477 = null;
 
         function veaFechaOrdenAlertaF488(alerta) {
             const directa = Date.parse(alerta?.fechaIso || '');
@@ -11017,14 +11266,128 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
         }
 
         function veaCategoriaAlertaF477(alerta) {
-            if (alerta?.ambito === 'PERÚ') return 'peru';
-            if (alerta?.ambito === 'MUNDO') return 'mundo';
-            return 'region';
+            const texto = `${alerta?.subambito || ''} ${alerta?.titulo || ''} ${alerta?.area || ''}`.toLowerCase();
+            if (alerta?.ambito === 'PERÚ' || alerta?.ambito === 'REGIÓN' || alerta?.ambito === 'AMÉRICAS' || /américa|bolivia|colombia|perú|brasil|chile|ecuador/.test(texto)) return 'america';
+            if (/europa|italia|españa|francia|alemania/.test(texto)) return 'europa';
+            if (/asia|india|china|bangladesh/.test(texto)) return 'asia';
+            if (/áfrica|africa|congo|uganda|etiopía|etiopia/.test(texto)) return 'africa';
+            if (/oceanía|oceania|australia|pacifico/.test(texto)) return 'oceania';
+            if (/antártida|antartida/.test(texto)) return 'antartida';
+            if (alerta?.ambito === 'MUNDO') return 'sin-ubicacion-continental';
+            return 'america';
+        }
+
+        function veaSubambitoAlertaF477(alerta, categoria) {
+            const directo = String(alerta?.subambito || alerta?.zona || alerta?.region || alerta?.provincia || alerta?.pais || '').trim();
+            const texto = `${alerta?.titulo || ''} ${alerta?.area || ''}`.toLowerCase();
+            if (categoria === 'america') {
+                const paises = veaPuntosMapaAlertaF477(alerta).map(punto => punto.pais);
+                if (paises.length) return [...new Set(paises)].join(' · ');
+                return directo && !/américa|latinoamérica|global|multi-país/.test(directo.toLowerCase()) ? directo : null;
+            }
+            const paises = veaPuntosMapaAlertaF477(alerta).map(punto => punto.pais);
+            if (paises.length) return [...new Set(paises)].join(' · ');
+            return directo && !/global|multi-país|mundo/.test(directo.toLowerCase()) ? directo : null;
+        }
+
+        function veaSubambitosCategoriaF477(categoria) {
+            const detectados = veaIndicesCategoriaF477(categoria).map(item => veaSubambitoAlertaF477(item.alerta, categoria));
+            return [...new Set(detectados.filter(Boolean))];
+        }
+
+        function veaSeleccionarSubambitoAlertasF477(subambito) {
+            veaSubambitoActivoF477 = subambito;
+            const categoria = veaCategoriaActivaF477;
+            document.querySelectorAll('#veaSubtabsAlertasF477 [role="tab"]').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.subambito === subambito)));
+            if (!subambito) {
+                const primero = veaIndicesCategoriaF477(categoria)[0];
+                if (primero) veaMostrarDetalleSeleccionadoF477(primero.indice);
+                else veaMostrarCategoriaSinAlertasF490(categoria);
+                return;
+            }
+            const items = veaIndicesCategoriaF477(categoria).filter(item => veaSubambitoAlertaF477(item.alerta, categoria) === subambito);
+            if (items[0]) veaMostrarDetalleSeleccionadoF477(items[0].indice);
+            else veaMostrarCategoriaSinAlertasF490(`${categoria}:${subambito}`);
+        }
+
+        function veaConstruirSubtabsAlertasF477(categoria, preferido = null) {
+            const contenedor = document.getElementById('veaSubtabsAlertasF477');
+            if (!contenedor) return;
+            const subambitos = veaSubambitosCategoriaF477(categoria);
+            if (!subambitos.length) {
+                contenedor.replaceChildren();
+                veaSeleccionarSubambitoAlertasF477(null);
+                return;
+            }
+            const conAlertas = new Set(veaIndicesCategoriaF477(categoria).map(item => veaSubambitoAlertaF477(item.alerta, categoria)));
+            const elegido = preferido && subambitos.includes(preferido) ? preferido : (subambitos.find(item => conAlertas.has(item)) || subambitos[0]);
+            contenedor.replaceChildren(...subambitos.map(subambito => {
+                const boton = document.createElement('button');
+                boton.type = 'button'; boton.role = 'tab'; boton.className = 'vea-alertas-subtab'; boton.dataset.subambito = subambito;
+                boton.setAttribute('aria-selected', String(subambito === elegido));
+                const total = veaIndicesCategoriaF477(categoria).filter(item => veaSubambitoAlertaF477(item.alerta, categoria) === subambito).length;
+                boton.textContent = `${subambito} (${total})`;
+                boton.addEventListener('click', () => veaSeleccionarSubambitoAlertasF477(subambito));
+                return boton;
+            }));
+            veaSubambitoActivoF477 = elegido;
+            veaSeleccionarSubambitoAlertasF477(elegido);
         }
 
         function veaIndicesCategoriaF477(categoria) {
             return VEA_ALERTAS_OFICIALES_F474.map((alerta, indice) => ({ alerta, indice }))
                 .filter(item => veaCategoriaAlertaF477(item.alerta) === categoria);
+        }
+
+        function veaPuntosMapaAlertaF477(alerta) {
+            const texto = `${alerta?.subambito || ''} ${alerta?.area || ''} ${alerta?.titulo || ''}`.toLowerCase();
+            const puntos = [
+                ['perú', 'Perú', -12.05, -77.04], ['lima', 'Lima', -12.05, -77.04], ['callao', 'Callao', -12.06, -77.14], ['brasil', 'Brasil', -14.2, -51.9], ['colombia', 'Colombia', 4.7, -74.1], ['ecuador', 'Ecuador', -0.2, -78.5], ['bolivia', 'Bolivia', -16.3, -63.6], ['chile', 'Chile', -33.4, -70.7], ['argentina', 'Argentina', -34.6, -58.4], ['venezuela', 'Venezuela', 8.0, -66.6], ['india', 'India', 20.6, 78.9], ['china', 'China', 35.9, 104.2], ['congo', 'Rep. Dem. del Congo', -2.9, 23.7], ['uganda', 'Uganda', 1.4, 32.3], ['australia', 'Australia', -25.3, 133.8]
+            ];
+            const encontrados = puntos.filter(([clave]) => texto.includes(clave));
+            const unicos = [...new Map(encontrados.map(item => [item[1], item])).values()];
+            if (unicos.length) return unicos.map(item => ({pais:item[1], lat:item[2], lon:item[3]}));
+            if (alerta?.ambito === 'PERÚ') return [{pais:'Perú', lat:-12.05, lon:-77.04}];
+            return [];
+        }
+
+        function veaRenderizarUbicacionAlertaF477(alerta) {
+            const contenedor = document.getElementById('veaDetalleUbicacion');
+            if (!contenedor) return;
+            const texto = `${alerta?.subambito || ''} ${alerta?.area || ''} ${alerta?.titulo || ''}`.toLowerCase();
+            const puntos = veaPuntosMapaAlertaF477(alerta);
+            const noInformado = 'No informado por la fuente oficial';
+            const pais = alerta?.pais || puntos.map(punto => punto.pais).join(' · ') || noInformado;
+            const region = alerta?.region || alerta?.departamento || (texto.includes('lima') ? 'Lima' : noInformado);
+            const provincia = alerta?.provincia || (texto.includes('callao') ? 'Callao' : noInformado);
+            const distrito = alerta?.distrito || (texto.includes('ventanilla') ? 'Ventanilla' : noInformado);
+            const institucion = alerta?.institucion || (/establecimientos? de salud|hospital|clínica|clinica/.test(texto) ? 'Establecimientos de salud (sin institución nominal publicada)' : noInformado);
+            const sector = alerta?.sector || (/privad[oa]/.test(texto) ? 'Privado' : (/públic[oa]/.test(texto) ? 'Público' : noInformado));
+            const filas = [['País', pais], ['Región / departamento', region], ['Provincia', provincia], ['Distrito', distrito], ['Institución', institucion], ['Sector', sector]];
+            contenedor.innerHTML = filas.map(([etiqueta, valor]) => `<div class="vea-alerta-ubicacion-item"><strong>${soatEscaparV1(etiqueta)}:</strong> ${soatEscaparV1(valor)}</div>`).join('');
+        }
+
+        function veaRenderizarMapaAlertaF477(alerta) {
+            const contenedor = document.getElementById('veaDetalleMapaVisual');
+            if (!contenedor) return;
+            const puntos = veaPuntosMapaAlertaF477(alerta);
+            const ubicacion = alerta?.area || alerta?.subambito || alerta?.ambito || 'Ubicación no informada por la fuente oficial.';
+            const titulo = soatEscaparV1(puntos.map(item => item.pais).join(' · ') || 'Ubicación no publicada');
+            const detalle = soatEscaparV1(ubicacion);
+            if (veaMapaLeafletF477) { try { veaMapaLeafletF477.remove(); } catch (_) {} veaMapaLeafletF477 = null; }
+            contenedor.innerHTML = `<div id="veaDetalleMapaLeafletF477" class="vea-alerta-mapa-leaflet" role="img" aria-label="Mapa de alertas: ${titulo}"></div><div class="vea-alerta-mapa-leyenda"><strong>${titulo}</strong><span>${detalle} · <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></span></div>`;
+            const mapaEl = document.getElementById('veaDetalleMapaLeafletF477');
+            if (mapaEl && window.L) {
+                const centro = puntos[0] || {lat:0, lon:0};
+                veaMapaLeafletF477 = window.L.map(mapaEl, {scrollWheelZoom:false, attributionControl:true}).setView([centro.lat, centro.lon], puntos.length > 1 ? 4 : (puntos.length ? 6 : 2));
+                window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(veaMapaLeafletF477);
+                puntos.forEach((punto, indice) => window.L.marker([punto.lat, punto.lon]).addTo(veaMapaLeafletF477).bindTooltip(`${indice + 1}. ${punto.pais}`, {permanent:true, direction:'top', offset:[0,-8]}));
+                setTimeout(() => veaMapaLeafletF477?.invalidateSize(), 250);
+            } else if (mapaEl) {
+                const punto = puntos[0] || {lat:0, lon:0};
+                const marcador = puntos.length ? `&marker=${punto.lat}%2C${punto.lon}` : '';
+                mapaEl.outerHTML = `<iframe title="Mapa de ubicación de la alerta en ${titulo}" src="https://www.openstreetmap.org/export/embed.html?bbox=-180%2C-85%2C180%2C85&layer=mapnik${marcador}" loading="lazy"></iframe>`;
+            }
         }
 
         function veaMostrarDetalleSeleccionadoF477(indice) {
@@ -11037,41 +11400,83 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             asignar('veaDetalleFecha', alerta.fecha);
             asignar('veaDetalleSituacion', alerta.situacion);
             asignar('veaDetalleArea', alerta.area);
+            asignar('veaDetalleMapa', alerta.mapa || `Mapa de afectación: ${alerta.area || 'ubicación no informada por la fuente oficial.'}`);
+            asignar('veaDetalleCasos', alerta.casos || 'No informado por la fuente oficial.');
+            asignar('veaDetalleSexoEdad', `Sexo: ${alerta.sexo || 'No informado por la fuente oficial.'} · Edad: ${alerta.edad || 'No informado por la fuente oficial.'}`);
             asignar('veaDetalleAcciones', alerta.acciones);
             asignar('veaDetalleVigilancia', alerta.vigilancia);
             asignar('veaDetalleLaboratorio', alerta.laboratorio);
+            asignar('veaDetalleTomaMuestra', alerta.tomaMuestra || 'No informado por la fuente oficial; consultar el protocolo vigente antes de tomar la muestra.');
+            asignar('veaDetalleMaterialMuestra', alerta.materialMuestra || 'No informado por la fuente oficial; confirmar insumos, recipiente, conservación y transporte en el protocolo vigente.');
+            const puntosAlerta = veaPuntosMapaAlertaF477(alerta);
+            asignar('veaDetalleLugares', puntosAlerta.map(punto => punto.pais).join(' · ') || alerta.area || 'Ubicación no informada por la fuente oficial.');
+            veaRenderizarUbicacionAlertaF477(alerta);
+            asignar('veaDetalleHallazgos', alerta.hallazgos || `La alerta se concentra en ${alerta.area || alerta.subambito || 'el área publicada por la fuente oficial'}. Casos registrados: ${alerta.casos || 'no informados por la fuente oficial'}.`);
+            const laboratorioFuente = document.getElementById('veaDetalleLaboratorioFuente');
+            if (laboratorioFuente) { laboratorioFuente.href = alerta.url || '#'; laboratorioFuente.hidden = !alerta.url; }
+            const itemsZona = veaIndicesCategoriaF477(veaCategoriaActivaF477).filter(item => veaSubambitoAlertaF477(item.alerta, veaCategoriaActivaF477) === veaSubambitoActivoF477);
+            const asignarResumen = (id, valor) => { const el = document.getElementById(id); if (el) el.textContent = valor; };
+            asignarResumen('veaAlertaKpiActivas', String(itemsZona.length || 1));
+            asignarResumen('veaAlertaKpiCasos', alerta.casos || 'No informado');
+            asignarResumen('veaAlertaKpiEventos', String(itemsZona.length || 1));
+            asignarResumen('veaAlertaKpiInformes', String(itemsZona.filter(item => item.alerta.url).length || 1));
+            veaRenderizarMapaAlertaF477(alerta);
+            const temas = document.getElementById('veaDetalleTemas');
+            if (temas) temas.innerHTML = [alerta.situacion || 'Situación actual de la alerta', alerta.acciones || 'Acciones recomendadas', alerta.laboratorio || 'Laboratorio y muestras', `Fuente: ${alerta.fecha || 'publicación oficial'}`].map(texto => `<span>${soatEscaparV1(texto)}</span>`).join('');
             ['veaDetalleFuente','veaDetalleFuenteVisible'].forEach(id => { const fuente = document.getElementById(id); if (fuente) { fuente.hidden = false; fuente.href = alerta.url; fuente.setAttribute('aria-label', `Abrir fuente oficial: ${alerta.titulo}`); } });
         }
 
         function veaMostrarCategoriaSinAlertasF490(categoria) {
-            const nombres = {peru:'Perú',region:'Región / Vecinos',mundo:'Mundo'};
+            const partes = String(categoria || '').split(':');
+            const nombres = {america:'América',europa:'Europa',asia:'Asia',africa:'África',oceania:'Oceanía',antartida:'Antártida'};
+            const nombre = nombres[partes[0]] || partes[0] || 'Ámbito';
+            const subambito = partes[1] ? ` · ${partes[1]}` : '';
             const asignar = (id, valor) => { const el = document.getElementById(id); if (el) el.textContent = valor; };
-            asignar('veaDetalleAmbito', String(nombres[categoria] || 'Ámbito').toUpperCase());
+            asignar('veaDetalleAmbito', `${nombre}${subambito}`.toUpperCase());
             asignar('veaDetalleTitulo', 'Sin alertas oficiales registradas en 2026');
             asignar('veaDetalleFecha', 'Periodo revisado: enero de 2026 hasta la fecha actual');
-            asignar('veaDetalleSituacion', `No existen alertas oficiales de ${nombres[categoria] || 'este ámbito'} registradas para el periodo vigente.`);
+            asignar('veaDetalleSituacion', `No existen alertas oficiales de ${nombre}${subambito} registradas para el periodo vigente.`);
             asignar('veaDetalleArea', 'Sin áreas afectadas registradas.');
+            asignar('veaDetalleMapa', 'Mapa de afectación: sin ubicación publicada.');
+            asignar('veaDetalleCasos', 'No informado por la fuente oficial.');
+            asignar('veaDetalleSexoEdad', 'Sexo: No informado por la fuente oficial. · Edad: No informado por la fuente oficial.');
+            const mapaVacio = document.getElementById('veaDetalleMapaVisual');
+            if (mapaVacio) mapaVacio.innerHTML = '<div class="vea-alerta-mapa-cuerpo"><div class="vea-alerta-mapa-pin" aria-hidden="true">⌖</div><div><div class="vea-alerta-dashboard-texto">Sin ubicación publicada por la fuente oficial.</div><div class="mt-1 text-[9px] font-bold text-slate-500">La fuente no delimitó un área geográfica.</div></div></div>';
+            asignar('veaAlertaKpiActivas', '0');
+            asignar('veaAlertaKpiCasos', 'No informado');
+            asignar('veaAlertaKpiEventos', '0');
+            asignar('veaAlertaKpiInformes', '0');
+            const temasVacios = document.getElementById('veaDetalleTemas');
+            if (temasVacios) temasVacios.innerHTML = ['Situación actual de alertas','Eventos en seguimiento','Recomendaciones de salud pública','Enlaces a informes oficiales'].map(texto => `<span>${texto}</span>`).join('');
             asignar('veaDetalleAcciones', 'Mantener la vigilancia de las fuentes oficiales.');
             asignar('veaDetalleVigilancia', 'La revisión automática continuará según la programación establecida.');
             asignar('veaDetalleLaboratorio', 'No corresponde mientras no exista una alerta oficial activa.');
+            asignar('veaDetalleTomaMuestra', 'No corresponde mientras no exista una alerta oficial activa.');
+            asignar('veaDetalleMaterialMuestra', 'No corresponde mientras no exista una alerta oficial activa.');
+            asignar('veaDetalleLugares', 'Sin lugares afectados publicados por la fuente oficial.');
+            const ubicacionVacia = document.getElementById('veaDetalleUbicacion');
+            if (ubicacionVacia) ubicacionVacia.innerHTML = ['País','Región / departamento','Provincia','Distrito','Institución','Sector'].map(etiqueta => `<div class="vea-alerta-ubicacion-item"><strong>${etiqueta}:</strong> No informado por la fuente oficial</div>`).join('');
+            asignar('veaDetalleHallazgos', 'No existen hallazgos publicados para esta zona en el periodo vigente.');
+            const laboratorioFuente = document.getElementById('veaDetalleLaboratorioFuente');
+            if (laboratorioFuente) { laboratorioFuente.hidden = true; laboratorioFuente.removeAttribute('href'); }
             const fuente = document.getElementById('veaDetalleFuenteVisible');
             if (fuente) { fuente.hidden = true; fuente.removeAttribute('href'); }
         }
 
         function veaSeleccionarCategoriaAlertasF477(categoria, indicePreferido = null) {
-            veaCategoriaActivaF477 = ['peru','region','mundo'].includes(categoria) ? categoria : 'peru';
-            const mapaTabs = {peru:'veaTabAlertasPeru',region:'veaTabAlertasRegion',mundo:'veaTabAlertasMundo'};
+            const categorias = ['america','europa','asia','africa','oceania','antartida'];
+            veaCategoriaActivaF477 = categorias.includes(categoria) ? categoria : 'america';
+            const mapaTabs = {america:'veaTabAlertasAmerica',europa:'veaTabAlertasEuropa',asia:'veaTabAlertasAsia',africa:'veaTabAlertasAfrica',oceania:'veaTabAlertasOceania',antartida:'veaTabAlertasAntartida'};
             Object.entries(mapaTabs).forEach(([clave,id]) => document.getElementById(id)?.setAttribute('aria-selected', String(clave === veaCategoriaActivaF477)));
-            const items = veaIndicesCategoriaF477(veaCategoriaActivaF477);
-            const seleccionado = items.some(item => item.indice === indicePreferido) ? indicePreferido : items[0]?.indice;
-            if (Number.isInteger(seleccionado)) veaMostrarDetalleSeleccionadoF477(seleccionado);
-            else veaMostrarCategoriaSinAlertasF490(veaCategoriaActivaF477);
+            const preferido = Number.isInteger(indicePreferido) ? veaSubambitoAlertaF477(VEA_ALERTAS_OFICIALES_F474[indicePreferido], veaCategoriaActivaF477) : null;
+            veaConstruirSubtabsAlertasF477(veaCategoriaActivaF477, preferido);
         }
 
         function veaActualizarConteosCentroF477() {
-            const conteos = {peru:veaIndicesCategoriaF477('peru').length,region:veaIndicesCategoriaF477('region').length,mundo:veaIndicesCategoriaF477('mundo').length};
-            const ids = {peru:'veaConteoAlertasPeru',region:'veaConteoAlertasRegion',mundo:'veaConteoAlertasMundo'};
+            const conteos = {america:veaIndicesCategoriaF477('america').length,europa:veaIndicesCategoriaF477('europa').length,asia:veaIndicesCategoriaF477('asia').length,africa:veaIndicesCategoriaF477('africa').length,oceania:veaIndicesCategoriaF477('oceania').length,antartida:veaIndicesCategoriaF477('antartida').length};
+            const ids = {america:'veaConteoAlertasAmerica',europa:'veaConteoAlertasEuropa',asia:'veaConteoAlertasAsia',africa:'veaConteoAlertasAfrica',oceania:'veaConteoAlertasOceania',antartida:'veaConteoAlertasAntartida'};
             Object.entries(ids).forEach(([clave,id]) => { const el = document.getElementById(id); if (el) el.textContent = `(${conteos[clave]})`; });
+            veaConstruirSubtabsAlertasF477(veaCategoriaActivaF477, veaSubambitoActivoF477);
         }
 
         function veaAbrirDetalleAlertaF475() {
@@ -11079,7 +11484,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             veaMarcarAlertaRevisadaF486(alertaActual);
             veaPausaPreviaCentroF477 = veaAlertasPausadasF474;
             veaActualizarConteosCentroF477();
-            veaSeleccionarCategoriaAlertasF477(veaCategoriaAlertaF477(alertaActual), veaIndiceAlertaF474);
+            veaSeleccionarCategoriaAlertasF477('america');
             const modal = document.getElementById('modalDetalleAlertaVea');
             if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
             if (!veaAlertasPausadasF474) veaAlternarPausaAlertasF474();
@@ -11108,17 +11513,29 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                 const datos = await respuesta.json();
                 if (Array.isArray(datos.alertas) && datos.alertas.length) {
                     VEA_ALERTAS_OFICIALES_F474 = veaCombinarAlertasF488(datos.alertas);
+                    try { localStorage.setItem(VEA_ALERTAS_CACHE_KEY_F490, JSON.stringify({alertas:datos.alertas, actualizadoEn:datos.actualizadoEn || Date.now(), fuente:datos.fuente || 'API de alertas'})); } catch (_) {}
                     veaIndiceAlertaF474 = 0;
                     veaConstruirCarruselContinuoF478();
                     veaActualizarConteosCentroF477();
                 }
                 const hora = new Intl.DateTimeFormat('es-PE', { hour:'2-digit', minute:'2-digit', timeZone:'America/Lima' }).format(new Date(datos.actualizadoEn || Date.now()));
-                if (estado) estado.textContent = `Actualizado hoy · ${hora}`;
+                if (estado) estado.textContent = `Fuente automática · actualizado ${hora}`;
             } catch (_) {
-                VEA_ALERTAS_OFICIALES_F474 = veaCombinarAlertasF488([]);
+                let cacheValida = null;
+                try {
+                    const cache = JSON.parse(localStorage.getItem(VEA_ALERTAS_CACHE_KEY_F490) || 'null');
+                    const marca = Date.parse(cache?.actualizadoEn || '') || Number(cache?.actualizadoEn || 0);
+                    if (Array.isArray(cache?.alertas) && cache.alertas.length && marca && Date.now() - marca <= VEA_ALERTAS_CACHE_MAX_MS_F490) cacheValida = cache;
+                } catch (_) {}
+                VEA_ALERTAS_OFICIALES_F474 = veaCombinarAlertasF488(cacheValida?.alertas || []);
                 veaConstruirCarruselContinuoF478();
                 veaActualizarConteosCentroF477();
-                if (estado) estado.textContent = 'Respaldo verificado activo';
+                if (estado) {
+                    const marca = cacheValida ? (Date.parse(cacheValida.actualizadoEn || '') || Number(cacheValida.actualizadoEn || 0)) : 0;
+                    const fecha = marca ? new Intl.DateTimeFormat('es-PE', {dateStyle:'short', timeStyle:'short', timeZone:'America/Lima'}).format(new Date(marca)) : 'sin consulta válida';
+                    estado.textContent = cacheValida ? `Respaldo local · última actualización ${fecha}` : 'Fuente principal no disponible · enlaces oficiales';
+                    estado.title = VEA_FUENTES_ALERTAS_F490.map(f => f.nombre).join(' · ');
+                }
             }
         }
         document.addEventListener('visibilitychange', () => {
@@ -12388,6 +12805,10 @@ function abrirAvisoBoletinSEVea(){
   const individualLines=individualTrendOrdenada.map(s=>{const color=colorIndividual[s.nombre]||'#64748b';const linea=`<polyline fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" points="${individualPoints(s.vals)}"/>`;const puntos=s.vals.map((v,i)=>{const x=padL+(s.vals.length<=1?0:(i/(s.vals.length-1))*(W-padL-padR));const y=padT+(H-padT-padB)-(v/individualMaxY)*(H-padT-padB);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.2" fill="${color}" stroke="#fff" stroke-width=".8"/>`;}).join('');return linea+puntos;}).join('');
   const individualYAxis=Array.from({length:6},(_,i)=>{const val=Math.round(individualMaxY*(5-i)/5);const y=padT+(H-padT-padB)*(i/5);return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="#d9e2ef" stroke-width=".7"/><text x="${padL-6}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="7" fill="#42526a">${val}</text>`;}).join('');
   const individualLegends=individualTrendOrdenada.length?individualTrendOrdenada.map(s=>`<span><i style="background:${colorIndividual[s.nombre]||'#64748b'}"></i>${esc(s.nombre)}</span>`).join(''):'<span>Sin diagnósticos individuales registrados</span>';
+  // F4.94 — gráfico horizontal para impresión: nombres completos y total acumulado por diagnóstico.
+  const individualBarsOrdenada=[...individualTrendOrdenada].sort((a,b)=>b.vals.reduce((s,v)=>s+v,0)-a.vals.reduce((s,v)=>s+v,0));
+  const individualBarMax=Math.max(1,...individualBarsOrdenada.map(s=>s.vals.reduce((a,v)=>a+v,0)));
+  const individualBars=individualBarsOrdenada.length?individualBarsOrdenada.map((s,i)=>{const totalDx=s.vals.reduce((a,v)=>a+v,0);const y=18+i*29;const ancho=totalDx/individualBarMax*350;const color=colorIndividual[s.nombre]||'#64748b';return `<text x="4" y="${y+10}" font-size="8" font-weight="700" fill="#26364d">${esc(s.nombre)}</text><rect x="245" y="${y}" width="350" height="16" rx="3" fill="#e8eef7"/><rect x="245" y="${y}" width="${Math.max(2,ancho).toFixed(1)}" height="16" rx="3" fill="${color}"/><text x="${Math.min(610,250+ancho+6).toFixed(1)}" y="${y+11}" font-size="8" font-weight="700" fill="#26364d">${totalDx.toLocaleString('es-PE')}</text>`;}).join(''):`<text x="325" y="96" text-anchor="middle" font-size="10" fill="#52647d">Sin diagnósticos individuales registrados</text>`;
   const individualDominanteTrend=individualTrendOrdenada[0]||{nombre:'Sin registros',vals:[]};
   const individualActualTrend=individualDominanteTrend.vals[se-1]||0;
   // F4.90 — comparativo TOP 5 de Casos Individuales: S.E. anterior vs activa.
@@ -12400,9 +12821,8 @@ function abrirAvisoBoletinSEVea(){
   };
   const dxIndPrev=conteoDxSemana(individualPrevRows);
   const dxIndActual=conteoDxSemana(individualActualRows);
-  // F4.92 — TOP 5 de diagnósticos individuales más marcados del año activo.
-  // Ranking: volumen acumulado S.E. 1..S.E. activa. Comparación: S.E. anterior vs activa.
-  // Así se muestran hasta 5 diagnósticos REALES aunque en las dos semanas comparadas sólo aparezcan 1–2.
+  // F4.92 — mismo conjunto de diagnósticos que el gráfico horizontal (hasta 6).
+  // Si existen 5 diagnósticos reales se muestran 5; si existen 6 se muestran 6.
   const dxIndAcumuladoHastaSE=conteoDxSemana(individual.filter(r=>year(r)===anio&&week(r)>=1&&week(r)<=se));
   const universoDxComparativo=Object.keys(dxIndAcumuladoHastaSE);
   const topIndividualActual=universoDxComparativo
@@ -12413,7 +12833,7 @@ function abrirAvisoBoletinSEVea(){
       previo:dxIndPrev[nombre]||0
     }))
     .sort((a,b)=>b.acumulado-a.acumulado||b.actual-a.actual||b.previo-a.previo||a.nombre.localeCompare(b.nombre,'es'))
-    .slice(0,5);
+    .slice(0,dxLeyenda.length);
   const comparativoIndividualTop=topIndividualActual.map(({nombre,actual,previo,acumulado})=>{
     const variacion=actual-previo;
     const pct=previo?(variacion/previo*100):(actual>0?null:0);
@@ -13528,7 +13948,7 @@ table{width:100%;border-collapse:collapse;font-size:8px}th{background:#eaf1f9;te
  <section class="card"><div class="title">2. TENDENCIA DE CASOS POR EVENTO (S.E. 1 – ${se})</div><div class="body"><div class="legend legendTop">${legends}</div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tendencia de casos por evento desde la semana epidemiológica 1 hasta la ${se}">${yAxis}<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#52647d" stroke-width="1.1"/><line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#52647d" stroke-width="1.1"/>${xAxis}${lines}<text x="12" y="${(padT+(H-padT-padB)/2).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="#26364d" transform="rotate(-90 12 ${(padT+(H-padT-padB)/2).toFixed(1)})">CASOS</text><text x="${((padL+W-padR)/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-size="8" font-weight="700" fill="#26364d">SEMANA EPIDEMIOLÓGICA</text></svg></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(lecturaTendenciaEventos)}</div></section>
  <section class="card comparativoEventoCard"><div class="title">3. COMPARATIVO DE EVENTO: S.E. ${seAnt??'—'} vs S.E. ${se}</div><div class="body"><table class="tablaComparativoEvento"><colgroup><col class="colEvento"><col class="colSemana"><col class="colSemana"><col class="colVariacion"><col class="colPorcentaje"></colgroup><thead><tr><th>EVENTO</th><th>S.E. ${seAnt??'—'}</th><th>S.E. ${se}</th><th>VARIACIÓN</th><th>% VARIACIÓN</th></tr></thead><tbody>${comparativo}<tr class="filaTotalComparativo"><td><b>TOTAL</b></td><td><b>${totalPrev}</b></td><td><b>${total}</b></td><td><b>${arrow(total-totalPrev)} ${Math.abs(total-totalPrev)}</b></td><td><b>${totalPrev?pctTxt((total-totalPrev)/totalPrev*100):'—'}</b></td></tr></tbody></table></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(analisisComparativo)}</div></section>
  <section class="card"><div class="title">4. TENDENCIA SEMANAL DE CASOS HOSPITALIZADOS (S.E. 1 – ${se})</div><div class="body"><div class="legend legendTop">${hospLegends}</div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tendencia semanal de casos hospitalizados desde la semana epidemiológica 1 hasta la ${se}">${hospYAxis}<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#52647d" stroke-width="1.1"/><line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#52647d" stroke-width="1.1"/>${xAxis}${hospLines}<text x="12" y="${(padT+(H-padT-padB)/2).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="#26364d" transform="rotate(-90 12 ${(padT+(H-padT-padB)/2).toFixed(1)})">CASOS HOSPITALIZADOS</text><text x="${((padL+W-padR)/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-size="8" font-weight="700" fill="#26364d">SEMANA EPIDEMIOLÓGICA</text></svg></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(lecturaTendenciaHosp)}</div></section><section class="card comparativoEventoCard"><div class="title">5. COMPARATIVO DE HOSPITALIZADOS: S.E. ${seAnt??'—'} vs S.E. ${se}</div><div class="body"><table class="tablaComparativoEvento"><colgroup><col class="colEvento"><col class="colSemana"><col class="colSemana"><col class="colVariacion"><col class="colPorcentaje"></colgroup><thead><tr><th>EVENTO</th><th>S.E. ${seAnt??'—'}</th><th>S.E. ${se}</th><th>VARIACIÓN</th><th>% VARIACIÓN</th></tr></thead><tbody>${hospComparativoRows}<tr class="filaTotalComparativo"><td><b>TOTAL</b></td><td><b>${totalHospPrevComp.toLocaleString('es-PE')}</b></td><td><b>${totalHospActualComp.toLocaleString('es-PE')}</b></td><td><b>${arrow(totalHospVar)} ${Math.abs(totalHospVar).toLocaleString('es-PE')}</b></td><td><b>${totalHospPct===null?'—':pctTxt(totalHospPct)}</b></td></tr></tbody></table></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(analisisHospComparativo)}</div></section>
- <section class="card"><div class="title">6. TENDENCIA SEMANAL DE CASOS INDIVIDUALES (S.E. 1 – ${se})</div><div class="body"><div class="legend legendTop">${individualLegends}</div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tendencia semanal de casos individuales desde la semana epidemiológica 1 hasta la ${se}">${individualYAxis}<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#52647d" stroke-width="1.1"/><line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#52647d" stroke-width="1.1"/>${xAxis}${individualLines}<text x="12" y="${(padT+(H-padT-padB)/2).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="#26364d" transform="rotate(-90 12 ${(padT+(H-padT-padB)/2).toFixed(1)})">CASOS INDIVIDUALES</text><text x="${((padL+W-padR)/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-size="8" font-weight="700" fill="#26364d">SEMANA EPIDEMIOLÓGICA</text></svg></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(lecturaTendenciaIndividual)}</div></section><section class="card comparativoEventoCard"><div class="title">7. COMPARATIVO DE CASOS INDIVIDUALES: S.E. ${seAnt??'—'} vs S.E. ${se}</div><div class="body"><table class="tablaComparativoEvento"><colgroup><col class="colEvento"><col class="colSemana"><col class="colSemana"><col class="colVariacion"><col class="colPorcentaje"></colgroup><thead><tr><th>DIAGNÓSTICO / EVENTO</th><th>S.E. ${seAnt??'—'}</th><th>S.E. ${se}</th><th>VARIACIÓN</th><th>% VARIACIÓN</th></tr></thead><tbody>${comparativoIndividualRows}<tr class="filaTotalComparativo"><td><b>TOTAL GENERAL</b></td><td><b>${totalIndividualPrev.toLocaleString('es-PE')}</b></td><td><b>${totalIndividualActual.toLocaleString('es-PE')}</b></td><td><b>${arrow(totalIndividualVar)} ${Math.abs(totalIndividualVar).toLocaleString('es-PE')}</b></td><td><b>${totalIndividualPct===null?'—':pctTxt(totalIndividualPct)}</b></td></tr></tbody></table></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(analisisIndividualComparativo)}</div></section>
+ <section class="card"><div class="title">6. CASOS INDIVIDUALES POR DIAGNÓSTICO (S.E. 1 – ${se})</div><div class="body"><svg viewBox="0 0 650 205" width="100%" role="img" aria-label="Casos individuales por diagnóstico hasta la semana epidemiológica ${se}"><text x="245" y="10" font-size="7" fill="#52647d">CASOS ACUMULADOS</text>${individualBars}</svg></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(lecturaTendenciaIndividual)}</div></section><section class="card comparativoEventoCard"><div class="title">7. COMPARATIVO DE CASOS INDIVIDUALES: S.E. ${seAnt??'—'} vs S.E. ${se}</div><div class="body"><table class="tablaComparativoEvento"><colgroup><col class="colEvento"><col class="colSemana"><col class="colSemana"><col class="colVariacion"><col class="colPorcentaje"></colgroup><thead><tr><th>DIAGNÓSTICO / EVENTO</th><th>S.E. ${seAnt??'—'}</th><th>S.E. ${se}</th><th>VARIACIÓN</th><th>% VARIACIÓN</th></tr></thead><tbody>${comparativoIndividualRows}<tr class="filaTotalComparativo"><td><b>TOTAL GENERAL</b></td><td><b>${totalIndividualPrev.toLocaleString('es-PE')}</b></td><td><b>${totalIndividualActual.toLocaleString('es-PE')}</b></td><td><b>${arrow(totalIndividualVar)} ${Math.abs(totalIndividualVar).toLocaleString('es-PE')}</b></td><td><b>${totalIndividualPct===null?'—':pctTxt(totalIndividualPct)}</b></td></tr></tbody></table></div><div class="analysis"><b>ANÁLISIS:</b> ${esc(analisisIndividualComparativo)}</div></section>
 </div>
 
 <div class="bottom">
