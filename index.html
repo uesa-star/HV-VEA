@@ -1755,9 +1755,6 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                     <button onclick="cambiarTab('tbc')" id="btnTabTbc" data-vea-tab="tbc" class="vea-menu-item vea-menu-item-inactive w-full flex items-center gap-3 px-3 py-2 rounded-xl border text-left text-xs font-bold transition-all">
                         <span class="w-6 text-center shrink-0">07</span><span class="vea-menu-label truncate">TBC</span>
                     </button>
-                    <button onclick="abrirModuloAdministradorVea()" id="btnTabAdministrador" data-vea-tab="administrador" class="vea-menu-item vea-menu-item-inactive w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-amber-500/20 text-left text-xs font-bold transition-all" title="Acceso restringido al administrador">
-                        <span class="w-6 text-center shrink-0">08</span><span class="vea-menu-label truncate">Administrador <span aria-hidden="true">🔒</span></span>
-                    </button>
                             <!-- Ingesta de Datos (ETL) -->
             <div id="veaRepoSidebar" class="vea-repo-sidebar mt-4 pt-4 border-t border-slate-800 flex flex-col gap-2">
                 <button onclick="document.getElementById('excelFileInput').click()" class="w-full bg-indigo-650 hover:bg-indigo-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2 vea-repo-button" title="Ingesta masiva y validación del repositorio epidemiológico">
@@ -1773,6 +1770,10 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                     <div id="progresoSincronizacion" class="w-full bg-slate-800 rounded-full h-1 overflow-hidden"><div id="barraProgreso" class="bg-indigo-500 h-full w-0 transition-all duration-300"></div></div>
                 </div>
             </div>
+
+                    <button onclick="abrirModuloAdministradorVea()" id="btnTabAdministrador" data-vea-tab="administrador" class="vea-menu-item vea-menu-item-inactive w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-amber-500/20 text-left text-xs font-bold transition-all" title="Acceso restringido al administrador">
+                        <span class="w-6 text-center shrink-0">08</span><span class="vea-menu-label truncate">Administrador <span aria-hidden="true">🔒</span></span>
+                    </button>
 
                 </nav>
 
