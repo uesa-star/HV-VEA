@@ -82,13 +82,30 @@ def drive_download(file_id: str, credentials_json: str) -> bytes:
         info, scopes=["https://www.googleapis.com/auth/drive.readonly"]
     )
     service = build("drive", "v3", credentials=credentials, cache_discovery=False)
-    request = service.files().get(fileId=file_id, alt="media")
+    metadata = service.files().get(fileId=file_id, fields="name,mimeType,size").execute()
+    mime = metadata.get("mimeType", "")
+    name = metadata.get("name", file_id)
+    if mime == "application/vnd.google-apps.spreadsheet":
+        request = service.files().export(
+            fileId=file_id,
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    else:
+        request = service.files().get(fileId=file_id, alt="media")
     buffer = io.BytesIO()
     downloader = MediaIoBaseDownload(buffer, request)
     done = False
     while not done:
         _, done = downloader.next_chunk()
-    return buffer.getvalue()
+    raw = buffer.getvalue()
+    if not raw.startswith(b"PK"):
+        preview = raw[:120].decode("utf-8", errors="replace").replace("\\n", " ")
+        raise RuntimeError(
+            f"Drive no entregó un XLSX válido para {name} (mime={mime}). "
+            f"Respuesta inicial: {preview}"
+        )
+    print(f"Archivo Drive: {name} ({mime}), {len(raw)} bytes")
+    return raw
 
 
 def supabase_request(base: str, key: str, method: str, table: str, **kwargs: Any) -> requests.Response:
