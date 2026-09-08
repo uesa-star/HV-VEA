@@ -86,12 +86,12 @@ def drive_download(file_id: str, credentials_json: str) -> bytes:
     mime = metadata.get("mimeType", "")
     name = metadata.get("name", file_id)
     if mime == "application/vnd.google-apps.spreadsheet":
-        request = service.files().export(
+        request = service.files().export_media(
             fileId=file_id,
             mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
     else:
-        request = service.files().get(fileId=file_id, alt="media")
+        request = service.files().get_media(fileId=file_id)
     buffer = io.BytesIO()
     downloader = MediaIoBaseDownload(buffer, request)
     done = False
