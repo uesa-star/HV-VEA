@@ -3,7 +3,11 @@ name: Sincronización VEA desde Google Drive
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/10 * * * *"
+
+concurrency:
+  group: vea-sync
+  cancel-in-progress: false
 
 jobs:
   sync-vea:
