@@ -12,7 +12,7 @@ import re
 import sys
 import tempfile
 import unicodedata
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any
 
 import requests
@@ -49,11 +49,15 @@ def column_name(value: Any, index: int) -> str:
 def json_value(value: Any) -> Any:
     if value is None:
         return None
-    if isinstance(value, (datetime, date)):
+    if isinstance(value, (datetime, date, time)):
         return value.isoformat()
     if isinstance(value, float) and value != value:
         return None
-    return value
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    # Valores especiales de Excel (errores, decimales u objetos de celda)
+    # se convierten a texto para mantener el lote JSON válido.
+    return str(value)
 
 
 def read_sheet(ws: Any) -> list[dict[str, Any]]:
