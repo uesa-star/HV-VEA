@@ -114,6 +114,9 @@ def supabase_request(base: str, key: str, method: str, table: str, **kwargs: Any
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
     }
+    extra_headers = kwargs.pop("headers", None)
+    if extra_headers:
+        headers.update(extra_headers)
     return requests.request(method, f"{base}/rest/v1/{table}", headers=headers, timeout=120, **kwargs)
 
 
