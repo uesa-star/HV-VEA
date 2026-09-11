@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2017,7 +2018,7 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                     <div class="flex justify-between items-start gap-3 mb-4 mt-2">
                         <div>
                             <h3 class="text-sm font-bold text-slate-200">Comparativo por Semana Epidemiológica</h3>
-                            <p class="text-[10px] text-slate-400">S.E. 1–53 por bloques anuales; total y avance calculados con datos reales.</p>
+                            <p class="text-[10px] text-slate-400">S.E. 1–53 por bloques anuales; total y avance operativo solo para 2026.</p>
                         </div>
                         <div class="text-right text-xs leading-normal shrink-0">
                             <div class="font-extrabold text-slate-400 uppercase">AÑOS: <span id="txtSemanalGraficoAño" class="text-red-500 font-black">--</span></div>
@@ -2554,7 +2555,7 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
 
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-sm border-t-2 border-t-indigo-500">
-                    <div class="flex items-start justify-between gap-3"><div><h4 class="text-sm font-black text-slate-100">Comparativo por Semana Epidemiológica</h4><p class="text-[10px] text-slate-500 mt-1">S.E. 1–53 por bloques anuales; total y avance calculados con datos reales.</p></div><div class="text-right text-[10px] font-black text-slate-400">AÑOS: <span id="ciGraficoSemanalAnios" class="text-red-400">—</span></div></div>
+                    <div class="flex items-start justify-between gap-3"><div><h4 class="text-sm font-black text-slate-100">Comparativo por Semana Epidemiológica</h4><p class="text-[10px] text-slate-500 mt-1">S.E. 1–53 por bloques anuales; total y avance operativo solo para 2026.</p></div><div class="text-right text-[10px] font-black text-slate-400">AÑOS: <span id="ciGraficoSemanalAnios" class="text-red-400">—</span></div></div>
                     <div class="relative h-72 mt-4">
                         <canvas id="ciChartG2Semanal"></canvas>
                         <div id="ciEstadoG2" class="absolute inset-0 hidden items-center justify-center text-center px-5 text-xs text-slate-500">Sin datos.</div>
@@ -3318,13 +3319,16 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
         // No se aplica a barras, semanas, edades ni comparativos anuales.
         const VEA_PLUGIN_MARCAS_MENSUALES_F505 = {
             id: 'veaMarcasMensualesF505',
-            afterDraw(chart) {
+            // Se ejecuta después de las series para que la marca quede visible
+            // sobre el gráfico y no sea cubierta por otro elemento del canvas.
+            afterDatasetsDraw(chart) {
                 const tipo = chart.config?.type || chart.config?._config?.type;
                 if (tipo !== 'line') return;
                 const labels = chart.data?.labels || [];
+                const mesesEsperados = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
                 const etiquetasMensuales = labels.length === 12 && labels.every((label, indice) => {
-                    const texto = String(label || '').toLowerCase();
-                    return texto.includes(['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][indice]);
+                    const texto = String(label || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    return texto.includes(mesesEsperados[indice]) || (indice === 8 && texto.includes('set'));
                 });
                 if (!etiquetasMensuales) return;
                 const escalaX = chart.scales?.x;
@@ -3332,19 +3336,28 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                 if (!escalaX || !area || !labels.length) return;
                 const datasets = chart.data.datasets || [];
                 // Solo se utiliza el año activo 2026; 2024/2025 son referencia.
-                const dataset2026 = datasets.find(ds => String(ds.label).trim() === '2026') || datasets[datasets.length - 1];
+                const dataset2026 = datasets.find(ds => String(ds.label).trim().includes('2026')) || datasets[datasets.length - 1];
                 if (!dataset2026) return;
                 let indiceActual = -1;
-                for (let i = dataset2026.data.length - 1; i >= 0; i--) {
-                    if (Number.isFinite(Number(dataset2026.data[i]))) { indiceActual = i; break; }
+                // Preferir el mes calendario actual si ya tiene dato; si aún no,
+                // usar el último mes observado real (p. ej., septiembre 2026).
+                const mesCalendario = new Date().getMonth();
+                if (Number.isFinite(Number(dataset2026.data?.[mesCalendario]))) {
+                    indiceActual = mesCalendario;
+                } else {
+                    for (let i = dataset2026.data.length - 1; i >= 0; i--) {
+                        if (Number.isFinite(Number(dataset2026.data[i]))) { indiceActual = i; break; }
+                    }
                 }
                 if (indiceActual < 0) return;
                 const x = escalaX.getPixelForValue(indiceActual);
                 const totalActual = Number(dataset2026.data[indiceActual]);
                 const meta2026 = chart.getDatasetMeta(datasets.indexOf(dataset2026));
                 const puntoActual = meta2026?.data?.[indiceActual];
-                if (!puntoActual) return;
-                const posicionPunto = puntoActual.tooltipPosition();
+                const posicionPunto = puntoActual
+                    ? { x: Number.isFinite(puntoActual.x) ? puntoActual.x : x, y: Number.isFinite(puntoActual.y) ? puntoActual.y : chart.scales?.y?.getPixelForValue(totalActual) }
+                    : { x, y: chart.scales?.y?.getPixelForValue(totalActual) };
+                if (!Number.isFinite(posicionPunto.y)) return;
                 const ctx = chart.ctx;
                 ctx.save();
                 ctx.lineWidth = 1.4;
@@ -4921,8 +4934,13 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                     const centro = (escalaX.getPixelForValue(bloque.inicio) + escalaX.getPixelForValue(bloque.fin)) / 2;
                     ctx.fillStyle = bloque.color; ctx.font = '800 11px Plus Jakarta Sans, sans-serif';
                     ctx.fillText(`AÑO ${bloque.anio}`, centro, chartArea.top - 27);
-                    ctx.fillStyle = '#94a3b8'; ctx.font = '700 9px Plus Jakarta Sans, sans-serif';
-                    ctx.fillText(`TOTAL: ${bloque.total.toLocaleString('es-PE')} · AVANCE: S.E. ${bloque.avance || 0}/53`, centro, chartArea.top - 12);
+                    // El avance operativo corresponde únicamente al año activo 2026.
+                    // No mostrar totales/avance de años históricos para evitar mezclar
+                    // cortes de actualización distintos con la S.E. vigente.
+                    if (bloque.anio === 2026) {
+                        ctx.fillStyle = '#94a3b8'; ctx.font = '700 9px Plus Jakarta Sans, sans-serif';
+                        ctx.fillText(`TOTAL: ${bloque.total.toLocaleString('es-PE')} · AVANCE: S.E. ${bloque.avance || 0}/53`, centro, chartArea.top - 12);
+                    }
                     if (indice < bloques.length - 1) {
                         const siguiente = bloques[indice + 1];
                         const separador = (escalaX.getPixelForValue(bloque.fin) + escalaX.getPixelForValue(siguiente.inicio)) / 2;
@@ -7724,6 +7742,27 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
         }
 
         function actualizarCalculosYGraficos() {
+            // Garantiza un estado visible cuando la carga remota/cache termina
+            // después del primer pintado. Sin esta protección los filtros podían
+            // quedar en "Ninguno" aunque Supabase ya hubiera entregado registros,
+            // dejando KPIs parciales y gráficos vacíos.
+            const datosEventoParaInicializar = databaseActiva[selectedEvent] || [];
+            if (datosEventoParaInicializar.length &&
+                ['EDAs', 'IRAs', 'SOBA', 'Febriles'].includes(selectedEvent) &&
+                (!Array.isArray(aniosSeleccionadosComparativa) || aniosSeleccionadosComparativa.length === 0)) {
+                const aniosDisponibles = tresAniosMasRecientesVea(
+                    datosEventoParaInicializar.map(registro => Number(registro.ANO))
+                );
+                aniosSeleccionadosComparativa = [...aniosDisponibles];
+                estadoFiltrosVea[selectedEvent] = {
+                    ...(estadoFiltrosVea[selectedEvent] || {}),
+                    anios: [...aniosDisponibles],
+                    inicializado: true
+                };
+                sincronizarReferenciasFiltrosVigilanciaVea();
+                renderDropdownAnios();
+                actualizarSemanasDisponibles();
+            }
             const resumenKpi = actualizarKpisVigilancia();
             const dataActivaDeEvento = databaseActiva[selectedEvent] || [];
             const anioPrincipal = resumenKpi?.anioPrincipal ?? obtenerAnioPrincipalActivo();
@@ -10831,10 +10870,55 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
         // La publishable key es segura para cliente; RLS decide qué tablas puede leer cada sesión.
         const VEA_SUPABASE_URL = 'https://qtsfkoasfoaovadilwgk.supabase.co';
         const VEA_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_uzdpUnVRYRQY3lROvtNwiw_qa4iyJwj';
+        // Fuente maestra validada el 10.Sep.2026. Se conserva todo el repositorio
+        // hasta la S.E.35; el boletín puede aplicar un corte menor mediante filtros.
+        const VEA_FUENTE_MAESTRA_20260910 = Object.freeze({
+            archivo: 'vigilancia VEA(20260910-202811).xlsx',
+            sha256: '9479023f7e3182ee4726cea5f02d8c115f17feda999e0e5496620684f8969c7c',
+            fecha: '10.Sep.2026',
+            ultimaSemana: 35,
+            hojas: Object.freeze(['EDAS','IRAS','FEBRILES','INDIVIDUAL','SOAT'])
+        });
+        window.VEA_FUENTE_MAESTRA_20260910 = VEA_FUENTE_MAESTRA_20260910;
         const VEA_SOAT_SNAPSHOT_VERSION = '20260902-11529';
         const VEA_SOAT_REGLA_PERIODO_VERSION = 'periodo-oficial-v1';
         const VEA_SOAT_SNAPSHOT_URL = '/data/soat-actualizacion-20260902.json';
         let veaSupabaseClient = null;
+        let veaDuplicadosUltimaCarga = 0;
+
+        function veaAuditarCorteFuenteMaestra() {
+            const fuentes = [
+                ['EDAs', databaseActiva.EDAs],
+                ['IRAs', databaseActiva.IRAs],
+                ['Febriles', databaseActiva.Febriles],
+                ['Individual', datosModulosIndependientes.casos]
+            ];
+            const semanas = fuentes.flatMap(([, filas]) => (Array.isArray(filas) ? filas : [])
+                .filter(f => Number(f?.ANO ?? f?.ano) === 2026)
+                .map(f => Number(f?.SEMANA ?? f?.semana))
+                .filter(Number.isFinite));
+            const ultimaSemana = semanas.length ? Math.max(...semanas) : null;
+            return {
+                fuente: VEA_FUENTE_MAESTRA_20260910.archivo,
+                ultimaSemana,
+                esperado: VEA_FUENTE_MAESTRA_20260910.ultimaSemana,
+                coincideCorte: ultimaSemana === VEA_FUENTE_MAESTRA_20260910.ultimaSemana,
+                registros: fuentes.reduce((total, [, filas]) => total + (Array.isArray(filas) ? filas.length : 0), 0)
+            };
+        }
+
+        function veaDeduplicarRegistrosProcesados(filas) {
+            if (!Array.isArray(filas) || !filas.length) return [];
+            const vistos = new Set();
+            return filas.filter(fila => {
+                const contenido = Object.fromEntries(Object.entries(fila || {})
+                    .filter(([clave]) => !['_row_id','_imported_at','__filaExcel'].includes(clave)));
+                const clave = JSON.stringify(Object.keys(contenido).sort().map(k => [k, contenido[k]]));
+                if (vistos.has(clave)) { veaDuplicadosUltimaCarga++; return false; }
+                vistos.add(clave);
+                return true;
+            });
+        }
 
         async function veaSupabaseLeerTablaCompleta(tabla) {
             if (!veaSupabaseClient) throw new Error('Cliente Supabase no disponible.');
@@ -10867,7 +10951,19 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             if (!Array.isArray(filas) || !filas.length) return [];
             const nombreHoja = ({ edas:'EDAs', iras:'IRAs', febriles:'Febriles', individual:'INDIVIDUAL', soat:'SOAT', vih:'VIH', tbc:'TBC' })[tabla];
             const destino = identificarDestinoHojaVea(nombreHoja);
-            const limpias = filas.map(({ _row_id, ...resto }) => resto);
+            // Las cargas repetidas pueden conservar _row_id e _imported_at distintos
+            // aunque el registro epidemiológico sea idéntico. No deben multiplicar
+            // totales ni dibujar gráficos inflados. Se deduplica solo por contenido
+            // epidemiológico, conservando filas legítimamente distintas.
+            const vistos = new Set();
+            const limpias = [];
+            for (const fila of filas) {
+                const { _row_id, _imported_at, ...resto } = fila || {};
+                const clave = JSON.stringify(Object.keys(resto).sort().map(k => [k, resto[k]]));
+                if (vistos.has(clave)) { veaDuplicadosUltimaCarga++; continue; }
+                vistos.add(clave);
+                limpias.push(resto);
+            }
             const worksheet = XLSX.utils.json_to_sheet(limpias);
             const resultado = parsearHojaVeaPorDestino(worksheet, destino, nombreHoja);
             if (resultado.error) throw new Error(resultado.error);
@@ -11021,7 +11117,9 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
         function veaActualizarPiesInformativosGraficosF468() {
             const fecha = formatearFechaHoraPieGraficoVea(veaUltimaActualizacionDatos);
             const estadoCarga = document.getElementById('veaCargaFechaMaster');
-            if (estadoCarga) estadoCarga.textContent = veaUltimaActualizacionDatos ? `Última sincronización: ${fecha}` : 'Verificando última sincronización…';
+            if (estadoCarga) estadoCarga.textContent = veaUltimaActualizacionDatos
+                ? `Última sincronización: ${fecha} · Fuente maestra 10.Sep.2026 · Duplicados excluidos: ${Number(veaDuplicadosUltimaCarga || 0).toLocaleString('es-PE')}`
+                : 'Verificando última sincronización…';
             document.querySelectorAll('.vea-chart-meta').forEach(pie => {
                 const canvas = document.getElementById(pie.dataset.canvasId || '');
                 const fuente = pie.querySelector('.vea-chart-meta-fuente');
@@ -11509,15 +11607,25 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                 db.close();
                 if (!payload?.databaseActiva || !payload?.modulos) return null;
 
+                // Nunca tratar una caché vacía como repositorio válido. Esa situación
+                // dejaba el módulo con "Ninguno" y hacía que el arranque retornara
+                // antes de consultar Supabase, aunque la base remota sí estuviera disponible.
+                const cantidadCache = ['EDAs', 'IRAs', 'Febriles']
+                    .reduce((total, clave) => total + (Array.isArray(payload.databaseActiva[clave]) ? payload.databaseActiva[clave].length : 0), 0)
+                    + (Array.isArray(payload.modulos.casos) ? payload.modulos.casos.length : 0);
+                if (cantidadCache === 0 || Number(payload.totalRemoto) === 0) return null;
+
                 veaFirmaRemotaActual = payload.firmaRemota || null;
 
                 veaUltimaActualizacionDatos = payload.ultimaActualizacionDatos || payload.ts || null;
                 actualizarMetadatosGraficosVea();
 
-                databaseActiva.EDAs = payload.databaseActiva.EDAs || [];
-                databaseActiva.IRAs = payload.databaseActiva.IRAs || [];
-                databaseActiva.Febriles = payload.databaseActiva.Febriles || [];
-                datosModulosIndependientes.casos = payload.modulos.casos || [];
+                veaDuplicadosUltimaCarga = 0;
+                databaseActiva.EDAs = veaDeduplicarRegistrosProcesados(payload.databaseActiva.EDAs || []);
+                databaseActiva.IRAs = veaDeduplicarRegistrosProcesados(payload.databaseActiva.IRAs || []);
+                databaseActiva.Febriles = veaDeduplicarRegistrosProcesados(payload.databaseActiva.Febriles || []);
+                datosModulosIndependientes.casos = veaDeduplicarRegistrosProcesados(payload.modulos.casos || []);
+                veaActualizarPiesInformativosGraficosF468();
                 datosModulosIndependientes.soat = [];
                 // VIH y TBC no forman parte de esta versión de 4 módulos.
                 datosModulosIndependientes.vih = [];
@@ -11662,6 +11770,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                 ['individual','casos','modulo']
             ];
             const cargadas = [], protegidas = [], errores = [];
+            veaDuplicadosUltimaCarga = 0;
             limpiarRepositorioVeaEnMemoria();
 
             // VEA002 — Carga escalonada: primero las tres vigilancias del Dashboard;
@@ -11818,9 +11927,16 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             }
             actualizarMetadatosGraficosVea();
             if (txtEstadoSupabase) {
+                const auditoriaFuente = veaAuditarCorteFuenteMaestra();
+                const estadoFuente = auditoriaFuente.coincideCorte
+                    ? `Fuente maestra validada · S.E. ${auditoriaFuente.ultimaSemana}`
+                    : `Fuente maestra pendiente · última S.E. ${auditoriaFuente.ultimaSemana ?? '—'}`;
+                const estadoDuplicados = veaDuplicadosUltimaCarga
+                    ? ` · Duplicados excluidos: ${veaDuplicadosUltimaCarga.toLocaleString('es-PE')}`
+                    : '';
                 txtEstadoSupabase.textContent = errores.length || protegidas.length
                     ? `Datos disponibles · ${totalRemoto.toLocaleString('es-PE')} registros · ${errores.length + protegidas.length} origen(es) pendientes`
-                    : `Datos actualizados correctamente · ${totalRemoto.toLocaleString('es-PE')} registros · Última sincronización: ${formatearFechaHoraActualizacionVea(veaUltimaActualizacionDatos)}`;
+                    : `${estadoFuente}${estadoDuplicados} · ${totalRemoto.toLocaleString('es-PE')} registros · Última sincronización: ${formatearFechaHoraActualizacionVea(veaUltimaActualizacionDatos)}`;
             }
             if (barraSupabase) barraSupabase.style.width = '100%';
             console.info('[VEA Supabase]', { cargadas, protegidas, errores, totalRemoto });
