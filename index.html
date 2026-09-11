@@ -4,7 +4,6 @@
 
 
 
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -4203,7 +4202,6 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
             principal: { titulo: 'VIGILANCIA PRINCIPAL', dropdown: 'dropdownTipoPrincipal', texto: 'txtTipoPrincipal' },
             individual: { titulo: 'NOTI-INDIVIDUAL', dropdown: 'dropdownTipoIndividual', texto: 'txtTipoIndividual' },
             hospitalizados: { titulo: 'HOSPITALIZADOS', dropdown: 'dropdownTipoHospitalizados', texto: 'txtTipoHospitalizados' },
-            otros: { titulo: 'OTROS REGISTROS', dropdown: 'dropdownTipoOtros', texto: 'txtTipoOtros' }
         };
         let frameActualizacionAniosDatosV6B = null;
         let frameActualizacionTiposDatosV6B = null;
@@ -4250,6 +4248,13 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                 ['principal:Febriles','Febriles','Febriles']
             ].filter(([, , fuente]) => (databaseActiva[fuente] || []).length);
             grupos.push({ titulo: 'VIGILANCIA PRINCIPAL', items: principal.map(([clave,etiqueta])=>({clave,etiqueta})) });
+            // El orden institucional de la matriz es fijo: principal,
+            // hospitalizados y finalmente NOTI-INDIVIDUAL.
+            const hospitalizados=[];
+            if((databaseActiva.EDAs||[]).some(r=>r.TO_HOS!==null&&r.TO_HOS!==undefined&&r.TO_HOS!==''))hospitalizados.push({clave:'hospital:HospEDAs',etiqueta:'Hospitalizados por EDAs'});
+            if((databaseActiva.IRAs||[]).some(r=>r.TO_HOS!==null&&r.TO_HOS!==undefined&&r.TO_HOS!==''))hospitalizados.push({clave:'hospital:HospIRAs',etiqueta:'Hospitalizados por IRAs'});
+            grupos.push({ titulo: 'HOSPITALIZADOS', items: hospitalizados });
+
             const diagnosticos = new Map();
             (datosModulosIndependientes.casos || []).forEach(item => {
                 const canon=item.__VEA_CANONICO||{};
@@ -4260,15 +4265,6 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                 if(!diagnosticos.has(clave))diagnosticos.set(clave,{clave,etiqueta:[codigo,nombre].filter(Boolean).join(' · ')});
             });
             grupos.push({ titulo: 'NOTI-INDIVIDUAL', items: [...diagnosticos.values()].sort((a,b)=>a.etiqueta.localeCompare(b.etiqueta,'es',{numeric:true})) });
-            const hospitalizados=[];
-            if((databaseActiva.EDAs||[]).some(r=>r.TO_HOS!==null&&r.TO_HOS!==undefined&&r.TO_HOS!==''))hospitalizados.push({clave:'hospital:HospEDAs',etiqueta:'Hospitalizados por EDAs'});
-            if((databaseActiva.IRAs||[]).some(r=>r.TO_HOS!==null&&r.TO_HOS!==undefined&&r.TO_HOS!==''))hospitalizados.push({clave:'hospital:HospIRAs',etiqueta:'Hospitalizados por IRAs'});
-            grupos.push({ titulo: 'HOSPITALIZADOS', items: hospitalizados });
-            const otros=[];
-            if((datosModulosIndependientes.soat||[]).length)otros.push({clave:'otros:SOAT',etiqueta:'SOAT'});
-            if((datosModulosIndependientes.vih||[]).length)otros.push({clave:'otros:VIH',etiqueta:'VIH'});
-            if((datosModulosIndependientes.tbc||[]).length)otros.push({clave:'otros:TBC',etiqueta:'TBC'});
-            grupos.push({ titulo: 'OTROS REGISTROS', items: otros });
             cacheTiposDisponiblesDatosAcumuladosV6B={
                 fuentes:fuentesTipos.map(lista=>({lista,longitud:(lista||[]).length})),
                 grupos
@@ -5518,6 +5514,11 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                 { clave: "Febriles", tipoFiltro:"principal:Febriles", etiqueta: "Febriles", grupo: "principal", serie: construirSerieMensualCasosResumenV6B("Febriles", anio), unidad: "casos oficiales · feb_tot" }
             ];
 
+            filas.push(
+                { clave: "HospEDAs", tipoFiltro:"hospital:HospEDAs", etiqueta: "Hospitalizados EDAs", grupo: "hospitalizados", serie: construirSerieMensualCampoResumenV6B("EDAs", anio, "TO_HOS"), unidad: "hospitalizaciones reales · TO HOS" },
+                { clave: "HospIRAs", tipoFiltro:"hospital:HospIRAs", etiqueta: "Hospitalizados IRAs", grupo: "hospitalizados", serie: construirSerieMensualCampoResumenV6B("IRAs", anio, "TO_HOS"), unidad: "hospitalizaciones reales · TOTAL HOSPI" }
+            );
+
             if (filasIndividuales.length) {
                 filas.push(...filasIndividuales.map(fila => ({ ...fila, grupo: "individual" })));
             } else {
@@ -5529,14 +5530,6 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                     motivo: `SIN REGISTROS INDIVIDUAL PARA ${anio}`
                 });
             }
-
-            filas.push(
-                { clave: "HospEDAs", tipoFiltro:"hospital:HospEDAs", etiqueta: "Hospitalizados EDAs", grupo: "hospitalizados", serie: construirSerieMensualCampoResumenV6B("EDAs", anio, "TO_HOS"), unidad: "hospitalizaciones reales · TO HOS" },
-                { clave: "HospIRAs", tipoFiltro:"hospital:HospIRAs", etiqueta: "Hospitalizados IRAs", grupo: "hospitalizados", serie: construirSerieMensualCampoResumenV6B("IRAs", anio, "TO_HOS"), unidad: "hospitalizaciones reales · TOTAL HOSPI" },
-                { clave: "SOAT", tipoFiltro:"otros:SOAT", etiqueta: "SOAT", grupo: "otros", serie: construirSerieMensualRegistrosResumenV6B("soat", anio), unidad: "registros SOAT" },
-                { clave: "VIH", tipoFiltro:"otros:VIH", etiqueta: "VIH", grupo: "otros", serie: construirSerieMensualRegistrosResumenV6B("vih", anio), unidad: "notificaciones VIH" },
-                { clave: "TBC", tipoFiltro:"otros:TBC", etiqueta: "TBC", grupo: "otros", serie: construirSerieMensualRegistrosResumenV6B("tbc", anio), unidad: "registros TBC · diabetes permanece como comorbilidad interna" }
-            );
 
             return filas;
         }
@@ -5570,7 +5563,6 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
                 principal: "VIGILANCIA PRINCIPAL",
                 individual: "NOTI-INDIVIDUAL",
                 hospitalizados: "HOSPITALIZADOS",
-                otros: "OTROS REGISTROS"
             };
             let grupoActual = null;
             const html = [];
