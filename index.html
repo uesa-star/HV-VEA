@@ -21,7 +21,7 @@
     <!-- SheetJS (XLSX) para procesamiento masivo de datos Excel/CSV -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Supabase: fuente remota; Excel/CSV permanece como respaldo manual -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.5s ease; }
@@ -10919,14 +10919,31 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             const lote = 1000;
             // VEA002 — Evita ráfagas de hasta 56 consultas simultáneas al abrir.
             // Tres páginas por tabla mantienen buen caudal sin saturar red, navegador ni Supabase.
-            const concurrencia = 3;
+            const concurrencia = veaDispositivoLimitadoF321() ? 1 : 3;
             const salida = [];
             let desdeBase = 0;
             let terminado = false;
             while (!terminado) {
                 const paginas = await Promise.all(Array.from({ length: concurrencia }, (_, i) => {
                     const desde = desdeBase + (i * lote);
-                    return veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);
+                    return (async () => {
+                        let ultimoError = null;
+                        const maxIntentos = veaDispositivoLimitadoF321() ? 4 : 3;
+                        for (let intento = 1; intento <= maxIntentos; intento++) {
+                            try {
+                                const respuesta = await veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);
+                                if (!respuesta.error) return respuesta;
+                                ultimoError = respuesta.error;
+                            } catch (err) {
+                                ultimoError = err;
+                            }
+                            if (intento < maxIntentos) {
+                                const espera = Math.min(5000, 700 * (2 ** (intento - 1)));
+                                await new Promise(resolve => setTimeout(resolve, espera));
+                            }
+                        }
+                        return { data: null, error: ultimoError || new Error(`No se pudo leer ${tabla}`) };
+                    })();
                 }));
                 for (const respuesta of paginas) {
                     if (respuesta.error) throw respuesta.error;
@@ -10984,12 +11001,37 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             return { agregados, total:destino.length, version:paquete.version };
         }
 
-        async function esperarSupabaseVea(maxMs = 4000) {
+        let veaSupabaseCargaAlternaPromise = null;
+        function veaCargarSupabaseAlterno() {
+            if (window.supabase?.createClient) return Promise.resolve(true);
+            if (veaSupabaseCargaAlternaPromise) return veaSupabaseCargaAlternaPromise;
+            veaSupabaseCargaAlternaPromise = new Promise(resolve => {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+                script.async = true;
+                let cerrado = false;
+                const finalizar = ok => {
+                    if (cerrado) return;
+                    cerrado = true;
+                    clearTimeout(timer);
+                    resolve(!!ok);
+                };
+                const timer = setTimeout(() => finalizar(false), 20000);
+                script.onload = () => finalizar(!!window.supabase?.createClient);
+                script.onerror = () => finalizar(false);
+                document.head.appendChild(script);
+            });
+            return veaSupabaseCargaAlternaPromise;
+        }
+
+        async function esperarSupabaseVea(maxMs = 20000) {
             const inicio = Date.now();
             while (!window.supabase?.createClient && (Date.now() - inicio) < maxMs) {
-                await new Promise(resolve => setTimeout(resolve, 150));
+                await new Promise(resolve => setTimeout(resolve, 200));
             }
-            return !!window.supabase?.createClient;
+            if (window.supabase?.createClient) return true;
+            console.warn('[VEA Supabase] CDN principal lento/no disponible; intentando CDN alterno.');
+            return await veaCargarSupabaseAlterno();
         }
 
         async function veaSupabaseObtenerFirmaLiviana() {
