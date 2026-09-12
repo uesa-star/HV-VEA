@@ -4,113 +4,123 @@ on:
   push:
     paths:
       - '.github/workflows/vea-mobile-rest-fix.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  patch:
+  patch-mobile-rest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Patch mobile direct REST loader
+      - name: Patch direct REST mobile loader
         shell: bash
         run: |
-          cat > /tmp/patch_vea.py <<'PY'
+          python - <<'PY'
           from pathlib import Path
-          p = Path('index.html')
-          s = p.read_text(encoding='utf-8')
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
 
           marker = "        async function veaSupabaseLeerTablaCompleta(tabla) {"
-          if 'async function veaSupabaseLeerPaginaRestMovil' not in s:
-              helper = '''        async function veaSupabaseLeerPaginaRestMovil(tabla, desde, hasta) {
-            const limite = Math.max(1, (hasta - desde) + 1);
-            const url = `${VEA_SUPABASE_URL}/rest/v1/${encodeURIComponent(tabla)}?select=*&offset=${desde}&limit=${limite}`;
-            const controlador = new AbortController();
-            const timer = setTimeout(() => controlador.abort(), 20000);
-            try {
-                const respuesta = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'apikey': VEA_SUPABASE_PUBLISHABLE_KEY,
-                        'Authorization': `Bearer ${VEA_SUPABASE_PUBLISHABLE_KEY}`,
-                        'Accept': 'application/json'
-                    },
-                    cache: 'no-store',
-                    signal: controlador.signal
-                });
-                if (!respuesta.ok) throw new Error(`REST ${tabla}: HTTP ${respuesta.status}`);
-                const data = await respuesta.json();
-                return { data: Array.isArray(data) ? data : [], error: null };
-            } finally {
-                clearTimeout(timer);
-            }
-        }
-
-'''
-              if marker not in s:
+          if 'async function veaSupabaseLeerPaginaRestMovil' not in text:
+              helper = "\n".join([
+                  "        async function veaSupabaseLeerPaginaRestMovil(tabla, desde, hasta) {",
+                  "            const limite = Math.max(1, (hasta - desde) + 1);",
+                  "            const url = `${VEA_SUPABASE_URL}/rest/v1/${encodeURIComponent(tabla)}?select=*&offset=${desde}&limit=${limite}`;",
+                  "            const controlador = new AbortController();",
+                  "            const timer = setTimeout(() => controlador.abort(), 20000);",
+                  "            try {",
+                  "                const respuesta = await fetch(url, {",
+                  "                    method: 'GET',",
+                  "                    headers: {",
+                  "                        'apikey': VEA_SUPABASE_PUBLISHABLE_KEY,",
+                  "                        'Authorization': `Bearer ${VEA_SUPABASE_PUBLISHABLE_KEY}`,",
+                  "                        'Accept': 'application/json'",
+                  "                    },",
+                  "                    cache: 'no-store',",
+                  "                    signal: controlador.signal",
+                  "                });",
+                  "                if (!respuesta.ok) throw new Error(`REST ${tabla}: HTTP ${respuesta.status}`);",
+                  "                const data = await respuesta.json();",
+                  "                return { data: Array.isArray(data) ? data : [], error: null };",
+                  "            } finally {",
+                  "                clearTimeout(timer);",
+                  "            }",
+                  "        }",
+                  ""
+              ])
+              if marker not in text:
                   raise SystemExit('No se encontró lector de tabla Supabase')
-              s = s.replace(marker, helper + marker, 1)
+              text = text.replace(marker, helper + marker, 1)
 
-          s = s.replace(
-              "            if (!veaSupabaseClient) throw new Error('Cliente Supabase no disponible.');",
-              "            if (!veaDispositivoLimitadoF321() && !veaSupabaseClient) throw new Error('Cliente Supabase no disponible.');",
-              1
-          )
-          s = s.replace('            const lote = 1000;', '            const lote = veaDispositivoLimitadoF321() ? 300 : 1000;', 1)
+          old_client_check = "            if (!veaSupabaseClient) throw new Error('Cliente Supabase no disponible.');"
+          if old_client_check in text:
+              text = text.replace(old_client_check, "            if (!veaDispositivoLimitadoF321() && !veaSupabaseClient) throw new Error('Cliente Supabase no disponible.');", 1)
 
-          old = "                                const respuesta = await veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);"
-          new = "                                const respuesta = veaDispositivoLimitadoF321()\n                                    ? await veaSupabaseLeerPaginaRestMovil(tabla, desde, desde + lote - 1)\n                                    : await veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);"
-          if old not in s:
+          if '            const lote = 1000;' in text:
+              text = text.replace('            const lote = 1000;', '            const lote = veaDispositivoLimitadoF321() ? 300 : 1000;', 1)
+
+          old_page = "                                const respuesta = await veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);"
+          new_page = "\n".join([
+              "                                const respuesta = veaDispositivoLimitadoF321()",
+              "                                    ? await veaSupabaseLeerPaginaRestMovil(tabla, desde, desde + lote - 1)",
+              "                                    : await veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);"
+          ])
+          if old_page not in text:
               raise SystemExit('No se encontró lectura paginada actual')
-          s = s.replace(old, new, 1)
+          text = text.replace(old_page, new_page, 1)
 
-          old_init = '''            const libreriaLista = await esperarSupabaseVea();
-            if (!libreriaLista) {
-                const msg = 'No se pudo cargar la librería Supabase. Verifique conexión a Internet y recargue la página.';
-                if (txtEstadoSupabase) txtEstadoSupabase.textContent = msg;
-                if (barraSupabase) barraSupabase.style.width = '0%';
-                console.error('[VEA Supabase]', msg);
-                return { cargadas: [], protegidas: [], errores: [msg], totalRemoto: 0 };
-            }
-
-            veaSupabaseClient ||= window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY);
-'''
-          new_init = '''            const modoRestMovil = veaDispositivoLimitadoF321();
-            const libreriaLista = modoRestMovil ? false : await esperarSupabaseVea();
-            if (!modoRestMovil && !libreriaLista) {
-                const msg = 'No se pudo cargar la librería Supabase. Verifique conexión a Internet y recargue la página.';
-                if (txtEstadoSupabase) txtEstadoSupabase.textContent = msg;
-                if (barraSupabase) barraSupabase.style.width = '0%';
-                console.error('[VEA Supabase]', msg);
-                return { cargadas: [], protegidas: [], errores: [msg], totalRemoto: 0 };
-            }
-
-            if (!modoRestMovil) veaSupabaseClient ||= window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY);
-'''
-          if old_init not in s:
+          old_init = "\n".join([
+              "            const libreriaLista = await esperarSupabaseVea();",
+              "            if (!libreriaLista) {",
+              "                const msg = 'No se pudo cargar la librería Supabase. Verifique conexión a Internet y recargue la página.';",
+              "                if (txtEstadoSupabase) txtEstadoSupabase.textContent = msg;",
+              "                if (barraSupabase) barraSupabase.style.width = '0%';",
+              "                console.error('[VEA Supabase]', msg);",
+              "                return { cargadas: [], protegidas: [], errores: [msg], totalRemoto: 0 };",
+              "            }",
+              "",
+              "            veaSupabaseClient ||= window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY);"
+          ])
+          new_init = "\n".join([
+              "            const modoRestMovil = veaDispositivoLimitadoF321();",
+              "            const libreriaLista = modoRestMovil ? false : await esperarSupabaseVea();",
+              "            if (!modoRestMovil && !libreriaLista) {",
+              "                const msg = 'No se pudo cargar la librería Supabase. Verifique conexión a Internet y recargue la página.';",
+              "                if (txtEstadoSupabase) txtEstadoSupabase.textContent = msg;",
+              "                if (barraSupabase) barraSupabase.style.width = '0%';",
+              "                console.error('[VEA Supabase]', msg);",
+              "                return { cargadas: [], protegidas: [], errores: [msg], totalRemoto: 0 };",
+              "            }",
+              "",
+              "            if (!modoRestMovil) veaSupabaseClient ||= window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY);"
+          ])
+          if old_init not in text:
               raise SystemExit('No se encontró inicialización Supabase actual')
-          s = s.replace(old_init, new_init, 1)
-          s = s.replace(
-              "            if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando Dashboard desde Supabase…';",
-              "            if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos en modo móvil seguro…' : 'Cargando Dashboard desde Supabase…';",
-              1
-          )
+          text = text.replace(old_init, new_init, 1)
 
-          p.write_text(s, encoding='utf-8')
+          old_status = "            if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando Dashboard desde Supabase…';"
+          if old_status in text:
+              text = text.replace(old_status, "            if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos en modo móvil seguro…' : 'Cargando Dashboard desde Supabase…';", 1)
+
+          path.write_text(text, encoding='utf-8')
+          print('Patch REST móvil aplicado')
           PY
-          python /tmp/patch_vea.py
 
-      - name: Validate
+      - name: Validate patch
+        shell: bash
         run: |
           grep -q "veaSupabaseLeerPaginaRestMovil" index.html
           grep -q "const lote = veaDispositivoLimitadoF321() ? 300 : 1000" index.html
           grep -q "Cargando datos en modo móvil seguro" index.html
 
-      - name: Commit
+      - name: Commit fix and remove workflow
         shell: bash
         run: |
           rm -f .github/workflows/vea-mobile-rest-fix.yml
