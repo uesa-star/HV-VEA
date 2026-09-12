@@ -1,0 +1,190 @@
+name: VEA one-shot mobile data fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/vea-mobile-data-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-mobile-loader:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch VEA mobile/tablet data loader
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+          original = text
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: se esperaba 1 coincidencia y se encontraron {count}')
+              text = text.replace(old, new, 1)
+              print(f'OK: {label}')
+
+          # 1) CDN principal + fallback inmediato si jsDelivr falla.
+          replace_once(
+              '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>',
+              '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src=\'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js\'"></script>',
+              'fallback CDN Supabase'
+          )
+
+          # 2) Espera tolerante a redes móviles y segundo CDN si el principal queda lento.
+          old_wait = '''        async function esperarSupabaseVea(maxMs = 4000) {
+            const inicio = Date.now();
+            while (!window.supabase?.createClient && (Date.now() - inicio) < maxMs) {
+                await new Promise(resolve => setTimeout(resolve, 150));
+            }
+            return !!window.supabase?.createClient;
+        }
+'''
+          new_wait = '''        let veaSupabaseCargaAlternaPromise = null;
+        function veaCargarSupabaseAlterno() {
+            if (window.supabase?.createClient) return Promise.resolve(true);
+            if (veaSupabaseCargaAlternaPromise) return veaSupabaseCargaAlternaPromise;
+            veaSupabaseCargaAlternaPromise = new Promise(resolve => {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+                script.async = true;
+                let cerrado = false;
+                const finalizar = ok => {
+                    if (cerrado) return;
+                    cerrado = true;
+                    clearTimeout(timer);
+                    resolve(!!ok);
+                };
+                const timer = setTimeout(() => finalizar(false), 20000);
+                script.onload = () => finalizar(!!window.supabase?.createClient);
+                script.onerror = () => finalizar(false);
+                document.head.appendChild(script);
+            });
+            return veaSupabaseCargaAlternaPromise;
+        }
+
+        async function esperarSupabaseVea(maxMs = 20000) {
+            const inicio = Date.now();
+            while (!window.supabase?.createClient && (Date.now() - inicio) < maxMs) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            if (window.supabase?.createClient) return true;
+            console.warn('[VEA Supabase] CDN principal lento/no disponible; intentando CDN alterno.');
+            return await veaCargarSupabaseAlterno();
+        }
+'''
+          replace_once(old_wait, new_wait, 'espera y fallback Supabase')
+
+          # 3) En móvil/tablet, una página por tabla a la vez para evitar saturar memoria/red.
+          replace_once(
+              '            const concurrencia = 3;',
+              '            const concurrencia = veaDispositivoLimitadoF321() ? 1 : 3;',
+              'concurrencia adaptativa'
+          )
+
+          # 4) Reintento exponencial de cada página Supabase ante cortes/latencia de red móvil.
+          old_range = "                    return veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);"
+          new_range = '''                    return (async () => {
+                        let ultimoError = null;
+                        const maxIntentos = veaDispositivoLimitadoF321() ? 4 : 3;
+                        for (let intento = 1; intento <= maxIntentos; intento++) {
+                            try {
+                                const respuesta = await veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);
+                                if (!respuesta.error) return respuesta;
+                                ultimoError = respuesta.error;
+                            } catch (err) {
+                                ultimoError = err;
+                            }
+                            if (intento < maxIntentos) {
+                                const espera = Math.min(5000, 700 * (2 ** (intento - 1)));
+                                await new Promise(resolve => setTimeout(resolve, espera));
+                            }
+                        }
+                        return { data: null, error: ultimoError || new Error(`No se pudo leer ${tabla}`) };
+                    })();'''
+          replace_once(old_range, new_range, 'reintentos por página')
+
+          # 5) Si una primera visita móvil queda sin datos, reintentar la sincronización completa.
+          old_start = '''            // Primera ejecución o revalidación automática de la caché desde Supabase.
+            try {
+                const resultadoSupabase = await cargarRepositorioVeaDesdeSupabase();
+                if (!resultadoSupabase.totalRemoto && resultadoSupabase.errores?.length) {
+                    console.error('[VEA Supabase] Sincronización sin datos:', resultadoSupabase.errores);
+                }
+            } catch (err) {
+                const txt = document.getElementById('textoProgresoVea');
+                if (txt) txt.textContent = 'Error de sincronización con Supabase: ' + (err?.message || err);
+                console.error('[VEA Supabase] Error de inicialización:', err);
+            }
+'''
+          new_start = '''            // Primera ejecución o revalidación automática de la caché desde Supabase.
+            // En móvil/tablet una red inestable no deja el Dashboard vacío: reintenta de forma controlada.
+            try {
+                const maxIntentosCarga = veaDispositivoLimitadoF321() ? 3 : 2;
+                let resultadoSupabase = null;
+                let ultimoErrorCarga = null;
+                for (let intento = 1; intento <= maxIntentosCarga; intento++) {
+                    try {
+                        resultadoSupabase = await cargarRepositorioVeaDesdeSupabase();
+                        if (resultadoSupabase?.totalRemoto > 0) break;
+                        ultimoErrorCarga = resultadoSupabase?.errores?.join(' | ') || 'sin datos remotos';
+                    } catch (err) {
+                        ultimoErrorCarga = err;
+                    }
+                    if (intento < maxIntentosCarga) {
+                        const txt = document.getElementById('textoProgresoVea');
+                        if (txt) txt.textContent = `Conexión móvil inestable · reintentando (${intento + 1}/${maxIntentosCarga})…`;
+                        await new Promise(resolve => setTimeout(resolve, 1800 * intento));
+                    }
+                }
+                if (!resultadoSupabase?.totalRemoto) {
+                    console.error('[VEA Supabase] Sincronización sin datos:', ultimoErrorCarga || resultadoSupabase?.errores || []);
+                    const txt = document.getElementById('textoProgresoVea');
+                    if (txt && !databaseActiva.EDAs.length && !databaseActiva.IRAs.length && !databaseActiva.Febriles.length) {
+                        txt.textContent = 'No se pudo completar la carga · toque recargar para reintentar';
+                    }
+                }
+            } catch (err) {
+                const txt = document.getElementById('textoProgresoVea');
+                if (txt) txt.textContent = 'Error de sincronización con Supabase: ' + (err?.message || err);
+                console.error('[VEA Supabase] Error de inicialización:', err);
+            }
+'''
+          replace_once(old_start, new_start, 'reintento de arranque multiplataforma')
+
+          if text == original:
+              raise SystemExit('No se aplicaron cambios')
+
+          path.write_text(text, encoding='utf-8')
+          print('index.html actualizado correctamente')
+          PY
+
+      - name: Validate patch markers
+        shell: bash
+        run: |
+          grep -q "maxMs = 20000" index.html
+          grep -q "concurrencia = veaDispositivoLimitadoF321() ? 1 : 3" index.html
+          grep -q "Conexión móvil inestable" index.html
+          grep -q "unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" index.html
+
+      - name: Commit fix and remove one-shot workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/vea-mobile-data-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/vea-mobile-data-fix.yml
+          git commit -m "VEA: corregir carga de datos en móvil, tablet y PC"
+          git push origin HEAD:main
