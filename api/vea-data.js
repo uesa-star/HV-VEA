@@ -41,8 +41,6 @@ module.exports = async function handler(req, res) {
       ? Math.max(1, Math.min(rawLimit, 500))
       : 300;
 
-  // Filtro opcional por año.
-  // En Supabase la columna real se llama "ano".
   const rawYear = String(req.query.year || '').trim();
 
   const year =
@@ -65,9 +63,17 @@ module.exports = async function handler(req, res) {
   params.set('offset', String(offset));
   params.set('limit', String(limit));
 
+  // Orden estable obligatorio para que offset/limit no pierda ni repita
+  // registros al recorrer varios años.
+  if (table === 'edas' || table === 'iras' || table === 'febriles') {
+    params.set('order', 'ano.asc,_row_id.asc');
+  } else {
+    params.set('order', 'ano.asc');
+  }
+
   // En móvil/tablet el index solicita year=<año vigente>.
-  // Para las tres vigilancias principales devolvemos una ventana comparativa
-  // de tres años (año vigente y dos previos), manteniendo Individual en un solo año.
+  // Las tres vigilancias principales devuelven una ventana comparativa
+  // de tres años: año vigente y los dos anteriores.
   if (year) {
     if (table === 'edas' || table === 'iras' || table === 'febriles') {
       const y = Number(year);
