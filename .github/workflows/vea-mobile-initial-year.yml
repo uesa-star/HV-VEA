@@ -1,0 +1,34 @@
+name: VEA mobile initial year
+
+on:
+  push:
+    paths:
+      - '.github/workflows/vea-mobile-initial-year.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aplicar parche movil
+        run: python scripts/patch_mobile_initial_year.py
+      - name: Validar marcas
+        run: |
+          grep -q "F6_10_CARGA_INICIAL_MOVIL_ANIO_ACTIVO" index.html
+          grep -q "anioCargaInicialVea" index.html
+          grep -q "year = null" index.html
+      - name: Commit final
+        run: |
+          rm -f scripts/patch_mobile_initial_year.py
+          rm -f .github/workflows/vea-mobile-initial-year.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "VEA: carga inicial movil por ano activo"
+          git push origin HEAD:main
