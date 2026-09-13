@@ -10914,7 +10914,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
 
         async function veaSupabaseLeerPaginaRestMovil(tabla, desde, hasta) {
             const limite = Math.max(1, (hasta - desde) + 1);
-            const url = `${VEA_SUPABASE_URL}/rest/v1/${encodeURIComponent(tabla)}?select=*&offset=${desde}&limit=${limite}`;
+            const url = `/api/vea-data?table=${encodeURIComponent(tabla)}&offset=${desde}&limit=${limite}`;
             const controlador = new AbortController();
             const timer = setTimeout(() => controlador.abort(), 20000);
             try {
@@ -11823,7 +11823,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             if (!modoRestMovil) veaSupabaseClient ||= window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY);
             // En una primera visita no se anteponen siete consultas de firma a la descarga real.
             // La firma se obtiene después, cuando la interfaz ya tiene datos visibles.
-            if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos en modo móvil seguro…' : 'Cargando Dashboard desde Supabase…';
+            if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos móviles vía Vercel…' : 'Cargando Dashboard desde Supabase…';
             if (barraSupabase) barraSupabase.style.width = '35%';
             const mapa = [
                 ['edas','EDAs','vigilancia'], ['iras','IRAs','vigilancia'], ['febriles','Febriles','vigilancia'],
@@ -11831,7 +11831,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             ];
             const cargadas = [], protegidas = [], errores = [];
             veaDuplicadosUltimaCarga = 0;
-            limpiarRepositorioVeaEnMemoria();
+            // Conserva la última base válida hasta que cada tabla remota haya sido validada.
 
             // VEA002 — Carga escalonada: primero las tres vigilancias del Dashboard;
             // después los módulos secundarios. Así la pantalla útil no espera SOAT/VIH/TBC.
@@ -12045,9 +12045,9 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                     }
                     veaFirmaRemotaActual = firmaRemota;
                 } catch (err) {
-                    if (txt) txt.textContent = `Sin conexión · usando la última base disponible · ${formatearFechaHoraActualizacionVea(veaUltimaActualizacionDatos)}`;
-                    console.warn('[VEA Supabase] Verificación liviana no disponible:', err);
-                    return;
+                    if (txt) txt.textContent = `Verificación liviana no disponible · iniciando sincronización completa…`;
+                    console.warn('[VEA Supabase] Verificación liviana no disponible; continúa carga completa:', err);
+                    // No retornar: continuar con cargarRepositorioVeaDesdeSupabase().
                 }
             }
 
