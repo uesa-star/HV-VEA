@@ -7,7 +7,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <!-- VEA_BUILD: MARCA_UNICA_SEPTIEMBRE_2026_V2 -->
+    <!-- VEA_BUILD: F6_10_CARGA_INICIAL_MOVIL_ANIO_ACTIVO -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MÓDULO DE VIGILANCIA EPIDEMIOLÓGICA INTEGRAL - VEA</title>
@@ -10931,9 +10931,12 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             });
         }
 
-        async function veaSupabaseLeerPaginaRestMovil(tabla, desde, hasta) {
+        async function veaSupabaseLeerPaginaRestMovil(tabla, desde, hasta, year = null) {
             const limite = Math.max(1, (hasta - desde) + 1);
-            const url = `/api/vea-data?table=${encodeURIComponent(tabla)}&offset=${desde}&limit=${limite}`;
+            let url = `/api/vea-data?table=${encodeURIComponent(tabla)}&offset=${desde}&limit=${limite}`;
+            if (year !== null && year !== undefined && String(year).trim() !== '') {
+                url += `&year=${encodeURIComponent(String(year).trim())}`;
+            }
             const controlador = new AbortController();
             const timer = setTimeout(() => controlador.abort(), 25000);
             try {
@@ -10956,7 +10959,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                 clearTimeout(timer);
             }
         }
-        async function veaSupabaseLeerTablaCompleta(tabla) {
+        async function veaSupabaseLeerTablaCompleta(tabla, year = null) {
             const lote = 300;
             const concurrencia = 2;
             const maxIntentos = 4;
@@ -10969,7 +10972,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                     return (async () => {
                         let ultimoError = null;
                         for (let intento = 1; intento <= maxIntentos; intento++) {
-                            const respuesta = await veaSupabaseLeerPaginaRestMovil(tabla, desde, desde + lote - 1);
+                            const respuesta = await veaSupabaseLeerPaginaRestMovil(tabla, desde, desde + lote - 1, year);
                             if (!respuesta.error) return respuesta;
                             ultimoError = respuesta.error;
                             if (intento < maxIntentos) {
@@ -11823,9 +11826,12 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Conectando con Supabase…';
             if (barraSupabase) barraSupabase.style.width = '15%';
             const modoRestMovil = true; // F6.00 motor universal same-origin vía Vercel
+            // F6.10 — carga inicial adaptativa: móvil/tablet recibe primero el año vigente.
+            // PC/laptop conserva el repositorio histórico completo.
+            const anioCargaInicialVea = veaDispositivoLimitadoF321() ? new Date().getFullYear() : null;
             // En una primera visita no se anteponen siete consultas de firma a la descarga real.
             // La firma se obtiene después, cuando la interfaz ya tiene datos visibles.
-            if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando datos vía Vercel…';
+            if (txtEstadoSupabase) txtEstadoSupabase.textContent = anioCargaInicialVea ? `Cargando datos ${anioCargaInicialVea} · modo móvil optimizado…` : 'Cargando datos vía Vercel…';
             if (barraSupabase) barraSupabase.style.width = '35%';
             const mapa = [
                 ['edas','EDAs','vigilancia'], ['iras','IRAs','vigilancia'], ['febriles','Febriles','vigilancia'],
@@ -11837,14 +11843,29 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
 
             // VEA002 — Carga escalonada: primero las tres vigilancias del Dashboard;
             // después los módulos secundarios. Así la pantalla útil no espera SOAT/VIH/TBC.
-            const descargarGrupo = grupo => Promise.all(grupo.map(async ([tabla, destino, tipo]) => {
-                try {
-                    const filas = await veaSupabaseLeerTablaCompleta(tabla);
-                    return { tabla, destino, tipo, filas };
-                } catch (err) {
-                    return { tabla, destino, tipo, error: err };
+            const descargarGrupo = async grupo => {
+                const resultados = [];
+                if (veaDispositivoLimitadoF321()) {
+                    for (const [tabla, destino, tipo] of grupo) {
+                        try {
+                            const filas = await veaSupabaseLeerTablaCompleta(tabla, anioCargaInicialVea);
+                            resultados.push({ tabla, destino, tipo, filas });
+                        } catch (err) {
+                            resultados.push({ tabla, destino, tipo, error: err });
+                        }
+                        await veaCederInterfazF321();
+                    }
+                    return resultados;
                 }
-            }));
+                return Promise.all(grupo.map(async ([tabla, destino, tipo]) => {
+                    try {
+                        const filas = await veaSupabaseLeerTablaCompleta(tabla, null);
+                        return { tabla, destino, tipo, filas };
+                    } catch (err) {
+                        return { tabla, destino, tipo, error: err };
+                    }
+                }));
+            };
 
             const aplicarResultados = async resultados => {
             for (const { tabla, destino, tipo, filas = [], error } of resultados) {
