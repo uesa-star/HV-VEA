@@ -1,0 +1,30 @@
+name: VEA tablet detection fix
+on:
+  push:
+    paths:
+      - 'scripts/patch_tablet_detection.py'
+      - '.github/workflows/vea-tablet-detection.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Aplicar parche
+        run: python scripts/patch_tablet_detection.py
+      - name: Validar marcador
+        run: grep -q "tabletPorPantalla" index.html
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "VEA: optimizar deteccion de tablet"
+          git push
