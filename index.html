@@ -1573,6 +1573,25 @@ html[data-vea-theme="light"] .vea-alerta-fuente-visible{background:#ecfeff;borde
    Sus datos no se borran de Supabase; solo se excluyen de la interfaz y del arranque. */
 #btnTabSoat, #contentSoat, #btnTabVih, #btnTabTbc, #contentVih, #contentTbc { display:none !important; }
 </style>
+
+    <style id="veaResponsiveUniversalF600">
+      @media (max-width: 1023px) {
+        html, body { max-width: 100%; overflow-x: hidden; }
+        #veaAppShell > main { width: 100% !important; max-width: 100% !important; padding-left: .75rem !important; padding-right: .75rem !important; }
+        #contentDashboard,#contentDatos,#contentCasos,#contentCanal,#contentTabla,#contentHospitalizados,#contentSoat,#contentVih,#contentTbc,#contentConfiguracion { min-width: 0 !important; max-width: 100% !important; }
+        #resumenAnualDatosAcumuladosV6B,#panelCabeceraDatosAcumuladosV6B { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; transform: none !important; }
+        canvas { max-width: 100% !important; }
+        [class*="grid-cols-5"],[class*="grid-cols-4"],[class*="grid-cols-3"] { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+      }
+      @media (max-width: 640px) {
+        #veaAppShell > main { padding-left: .5rem !important; padding-right: .5rem !important; }
+        [class*="grid-cols-5"],[class*="grid-cols-4"],[class*="grid-cols-3"],[class*="grid-cols-2"] { grid-template-columns: minmax(0,1fr) !important; }
+        #resumenAnualDatosAcumuladosV6B .vea-matriz-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+        #resumenAnualDatosAcumuladosV6B .vea-matriz-tabla { min-width: 760px !important; }
+        button, select, input { max-width: 100%; }
+      }
+    </style>
+
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col relative">
 
@@ -10916,7 +10935,7 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             const limite = Math.max(1, (hasta - desde) + 1);
             const url = `/api/vea-data?table=${encodeURIComponent(tabla)}&offset=${desde}&limit=${limite}`;
             const controlador = new AbortController();
-            const timer = setTimeout(() => controlador.abort(), 20000);
+            const timer = setTimeout(() => controlador.abort(), 25000);
             try {
                 const respuesta = await fetch(url, {
                     method: 'GET',
@@ -10928,21 +10947,19 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                     cache: 'no-store',
                     signal: controlador.signal
                 });
-                if (!respuesta.ok) throw new Error(`REST ${tabla}: HTTP ${respuesta.status}`);
+                if (!respuesta.ok) throw new Error(`VEA API ${tabla}: HTTP ${respuesta.status}`);
                 const data = await respuesta.json();
                 return { data: Array.isArray(data) ? data : [], error: null };
+            } catch (error) {
+                return { data: null, error };
             } finally {
                 clearTimeout(timer);
             }
         }
         async function veaSupabaseLeerTablaCompleta(tabla) {
-            if (!veaDispositivoLimitadoF321() && !veaSupabaseClient) throw new Error('Cliente Supabase no disponible.');
-            // FASE 3.5: páginas concurrentes. Supabase limita normalmente cada respuesta,
-            // pero no obliga a pedirlas una detrás de otra. Se conservan TODAS las filas.
-            const lote = veaDispositivoLimitadoF321() ? 300 : 1000;
-            // VEA002 — Evita ráfagas de hasta 56 consultas simultáneas al abrir.
-            // Tres páginas por tabla mantienen buen caudal sin saturar red, navegador ni Supabase.
-            const concurrencia = veaDispositivoLimitadoF321() ? 1 : 3;
+            const lote = 300;
+            const concurrencia = 2;
+            const maxIntentos = 4;
             const salida = [];
             let desdeBase = 0;
             let terminado = false;
@@ -10951,19 +10968,12 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                     const desde = desdeBase + (i * lote);
                     return (async () => {
                         let ultimoError = null;
-                        const maxIntentos = veaDispositivoLimitadoF321() ? 4 : 3;
                         for (let intento = 1; intento <= maxIntentos; intento++) {
-                            try {
-                                const respuesta = veaDispositivoLimitadoF321()
-                                    ? await veaSupabaseLeerPaginaRestMovil(tabla, desde, desde + lote - 1)
-                                    : await veaSupabaseClient.from(tabla).select('*').range(desde, desde + lote - 1);
-                                if (!respuesta.error) return respuesta;
-                                ultimoError = respuesta.error;
-                            } catch (err) {
-                                ultimoError = err;
-                            }
+                            const respuesta = await veaSupabaseLeerPaginaRestMovil(tabla, desde, desde + lote - 1);
+                            if (!respuesta.error) return respuesta;
+                            ultimoError = respuesta.error;
                             if (intento < maxIntentos) {
-                                const espera = Math.min(5000, 700 * (2 ** (intento - 1)));
+                                const espera = Math.min(5000, 650 * (2 ** (intento - 1)));
                                 await new Promise(resolve => setTimeout(resolve, espera));
                             }
                         }
@@ -10974,7 +10984,10 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                     if (respuesta.error) throw respuesta.error;
                     const filas = Array.isArray(respuesta.data) ? respuesta.data : [];
                     salida.push(...filas);
-                    if (filas.length < lote) { terminado = true; break; }
+                    if (filas.length < lote) {
+                        terminado = true;
+                        break;
+                    }
                 }
                 desdeBase += lote * concurrencia;
             }
@@ -11809,21 +11822,10 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             const barraSupabase = document.getElementById('barraProgresoVea');
             if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Conectando con Supabase…';
             if (barraSupabase) barraSupabase.style.width = '15%';
-
-            const modoRestMovil = veaDispositivoLimitadoF321();
-            const libreriaLista = modoRestMovil ? false : await esperarSupabaseVea();
-            if (!modoRestMovil && !libreriaLista) {
-                const msg = 'No se pudo cargar la librería Supabase. Verifique conexión a Internet y recargue la página.';
-                if (txtEstadoSupabase) txtEstadoSupabase.textContent = msg;
-                if (barraSupabase) barraSupabase.style.width = '0%';
-                console.error('[VEA Supabase]', msg);
-                return { cargadas: [], protegidas: [], errores: [msg], totalRemoto: 0 };
-            }
-
-            if (!modoRestMovil) veaSupabaseClient ||= window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY);
+            const modoRestMovil = true; // F6.00 motor universal same-origin vía Vercel
             // En una primera visita no se anteponen siete consultas de firma a la descarga real.
             // La firma se obtiene después, cuando la interfaz ya tiene datos visibles.
-            if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos móviles vía Vercel…' : 'Cargando Dashboard desde Supabase…';
+            if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando datos vía Vercel…';
             if (barraSupabase) barraSupabase.style.width = '35%';
             const mapa = [
                 ['edas','EDAs','vigilancia'], ['iras','IRAs','vigilancia'], ['febriles','Febriles','vigilancia'],
@@ -12007,8 +12009,6 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
         window.cargarRepositorioVeaDesdeSupabase = cargarRepositorioVeaDesdeSupabase;
 
         window.onload = async function() {
-            // FASE 3.20 — arranque interactivo primero. En móvil no ejecutar cálculos
-            // pesados antes de que el botón de menú y la navegación puedan responder.
             aplicarEstadoVeaSidebar();
             cambiarTab('dashboard');
             cargarFiltrosPersistidos();
@@ -12017,50 +12017,29 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             actualizarCalculosYGraficos();
             renderizarModulosDinamicosVea();
 
-            // FASE 3.6: primero presenta el último dataset validado; luego refresca desde Supabase.
-            // En la primera ejecución (sin caché) continúa con la carga remota normal.
+            const txt = document.getElementById('textoProgresoVea');
+            const barra = document.getElementById('barraProgresoVea');
             const cacheVeaDisponible = await veaCacheRestaurarProcesado();
-
-            // Con caché validada la interfaz queda utilizable de inmediato, pero la
-            // verificación remota SIEMPRE se ejecuta al abrir VEA.
             if (cacheVeaDisponible) {
-                document.documentElement.dataset.veaInteraccion = 'prioritaria';
-                const txt = document.getElementById('textoProgresoVea');
-                if (txt) txt.textContent = 'Consultando base VEA…';
-                // Ceder dos cuadros permite que la caché se pinte antes de iniciar red/parsers.
+                if (txt) txt.textContent = 'Base local disponible · verificando actualización…';
+                if (barra) barra.style.width = '90%';
                 await veaCederInterfazF321();
-                await veaCederInterfazF321();
-
-                // Verificación liviana: si conteo y última fila de cada tabla coinciden,
-                // no descargar ni reprocesar nuevamente las siete tablas completas.
-                try {
-                    const firmaRemota = await veaSupabaseObtenerFirmaLiviana();
-                    if (firmaRemota && cacheVeaDisponible.firmaRemota === firmaRemota) {
-                        veaFirmaRemotaActual = firmaRemota;
-                        const total = Number(cacheVeaDisponible.totalRemoto) || 0;
-                        if (txt) txt.textContent = `Base VEA al día · ${total.toLocaleString('es-PE')} registros · Última sincronización: ${formatearFechaHoraActualizacionVea(veaUltimaActualizacionDatos)}`;
-                        const barra = document.getElementById('barraProgresoVea');
-                        if (barra) barra.style.width = '100%';
-                        return;
-                    }
-                    veaFirmaRemotaActual = firmaRemota;
-                } catch (err) {
-                    if (txt) txt.textContent = `Verificación liviana no disponible · iniciando sincronización completa…`;
-                    console.warn('[VEA Supabase] Verificación liviana no disponible; continúa carga completa:', err);
-                    // No retornar: continuar con cargarRepositorioVeaDesdeSupabase().
-                }
+            } else {
+                if (txt) txt.textContent = 'Sincronizando base VEA…';
+                if (barra) barra.style.width = '15%';
             }
 
-            // Primera ejecución o revalidación automática de la caché desde Supabase.
             try {
                 const resultadoSupabase = await cargarRepositorioVeaDesdeSupabase();
                 if (!resultadoSupabase.totalRemoto && resultadoSupabase.errores?.length) {
-                    console.error('[VEA Supabase] Sincronización sin datos:', resultadoSupabase.errores);
+                    console.error('[VEA Universal] Sincronización sin datos:', resultadoSupabase.errores);
                 }
             } catch (err) {
-                const txt = document.getElementById('textoProgresoVea');
-                if (txt) txt.textContent = 'Error de sincronización con Supabase: ' + (err?.message || err);
-                console.error('[VEA Supabase] Error de inicialización:', err);
+                if (txt) txt.textContent = cacheVeaDisponible
+                    ? 'Sincronización pendiente · usando la última base válida'
+                    : 'Error de sincronización: ' + (err?.message || err);
+                if (barra && cacheVeaDisponible) barra.style.width = '100%';
+                console.error('[VEA Universal] Error de inicialización:', err);
             }
         };
     
