@@ -11790,7 +11790,14 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
 
         // FASE 3.21 — PRIORIDAD ABSOLUTA A LA INTERACCIÓN
         // En equipos móviles/tablets se cede el hilo principal entre parsers grandes.
-        const veaDispositivoLimitadoF321 = () => window.innerWidth < 1024 || (navigator.hardwareConcurrency || 8) <= 4;
+        const veaDispositivoLimitadoF321 = () => {
+            const ancho = Math.max(window.innerWidth || 0, document.documentElement?.clientWidth || 0);
+            const nucleos = navigator.hardwareConcurrency || 8;
+            const touch = (navigator.maxTouchPoints || 0) > 0 || ('ontouchstart' in window);
+            const punteroTactil = !!window.matchMedia?.('(pointer: coarse)').matches;
+            const tabletPorPantalla = touch && ancho <= 1366;
+            return ancho < 1024 || nucleos <= 4 || punteroTactil || tabletPorPantalla;
+        };
 
         // FASE 3.23: las animaciones Chart.js no aportan cálculo y consumen cuadros
         // durante la navegación. En móvil se desactivan globalmente.
