@@ -65,9 +65,16 @@ module.exports = async function handler(req, res) {
   params.set('offset', String(offset));
   params.set('limit', String(limit));
 
-  // Si se envía ?year=2026, Supabase devolverá solo 2026.
+  // En móvil/tablet el index solicita year=<año vigente>.
+  // Para las tres vigilancias principales devolvemos una ventana comparativa
+  // de tres años (año vigente y dos previos), manteniendo Individual en un solo año.
   if (year) {
-    params.set('ano', `eq.${year}`);
+    if (table === 'edas' || table === 'iras' || table === 'febriles') {
+      const y = Number(year);
+      params.set('ano', `in.(${y - 2},${y - 1},${y})`);
+    } else {
+      params.set('ano', `eq.${year}`);
+    }
   }
 
   const upstreamUrl =
