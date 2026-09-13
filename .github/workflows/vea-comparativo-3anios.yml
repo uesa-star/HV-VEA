@@ -1,0 +1,32 @@
+name: VEA comparativo 3 anios movil
+on:
+  push:
+    paths:
+      - 'scripts/patch_vea_comparativo_3anios.py'
+      - '.github/workflows/vea-comparativo-3anios.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Aplicar parche
+        run: python scripts/patch_vea_comparativo_3anios.py
+      - name: Validar marcadores
+        run: |
+          grep -q 'F6_11_COMPARATIVO_3_ANIOS_MOVIL' index.html
+          grep -q 'aniosComparativosVea' index.html
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'VEA: restaurar comparativos Año Mes y SE en móvil'
+          git push origin main
