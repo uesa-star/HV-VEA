@@ -7,7 +7,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <!-- VEA_BUILD: F6_10_CARGA_INICIAL_MOVIL_ANIO_ACTIVO -->
+    <!-- VEA_BUILD: F6_11_COMPARATIVO_3_ANIOS_MOVIL -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MÓDULO DE VIGILANCIA EPIDEMIOLÓGICA INTEGRAL - VEA</title>
@@ -11833,9 +11833,13 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
             if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Conectando con Supabase…';
             if (barraSupabase) barraSupabase.style.width = '15%';
             const modoRestMovil = true; // F6.00 motor universal same-origin vía Vercel
-            // F6.10 — carga inicial adaptativa: móvil/tablet recibe primero el año vigente.
-            // PC/laptop conserva el repositorio histórico completo.
+            // F6.11 — carga inicial comparativa optimizada.
+            // Móvil/tablet conserva 3 años para comparativos por Año, Mes y S.E.;
+            // Individual inicia solo con el año vigente para no saturar memoria.
             const anioCargaInicialVea = veaDispositivoLimitadoF321() ? new Date().getFullYear() : null;
+            const aniosComparativosVea = veaDispositivoLimitadoF321()
+                ? [anioCargaInicialVea - 2, anioCargaInicialVea - 1, anioCargaInicialVea]
+                : null;
             // En una primera visita no se anteponen siete consultas de firma a la descarga real.
             // La firma se obtiene después, cuando la interfaz ya tiene datos visibles.
             if (txtEstadoSupabase) txtEstadoSupabase.textContent = anioCargaInicialVea ? `Cargando datos ${anioCargaInicialVea} · modo móvil optimizado…` : 'Cargando datos vía Vercel…';
@@ -11855,7 +11859,16 @@ const veaMetricasPrimerIngresoF402 = window.veaMetricasPrimerIngresoF402 || {};
                 if (veaDispositivoLimitadoF321()) {
                     for (const [tabla, destino, tipo] of grupo) {
                         try {
-                            const filas = await veaSupabaseLeerTablaCompleta(tabla, anioCargaInicialVea);
+                            let filas = [];
+                            if (tipo === 'vigilancia') {
+                                for (const anio of aniosComparativosVea) {
+                                    const parcial = await veaSupabaseLeerTablaCompleta(tabla, anio);
+                                    filas.push(...parcial);
+                                    await veaCederInterfazF321();
+                                }
+                            } else {
+                                filas = await veaSupabaseLeerTablaCompleta(tabla, anioCargaInicialVea);
+                            }
                             resultados.push({ tabla, destino, tipo, filas });
                         } catch (err) {
                             resultados.push({ tabla, destino, tipo, error: err });
