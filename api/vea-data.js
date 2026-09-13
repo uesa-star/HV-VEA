@@ -1,29 +1,54 @@
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(405).json({
+      error: 'Method Not Allowed'
+    });
   }
 
-  const allowed = new Set(['edas', 'iras', 'febriles', 'individual']);
+  const allowed = new Set([
+    'edas',
+    'iras',
+    'febriles',
+    'individual'
+  ]);
+
   const table = String(req.query.table || '').toLowerCase();
 
   if (!allowed.has(table)) {
-    return res.status(400).json({ error: 'Tabla no permitida' });
+    return res.status(400).json({
+      error: 'Tabla no permitida'
+    });
   }
 
-  const rawOffset = Number.parseInt(String(req.query.offset || '0'), 10);
-  const rawLimit = Number.parseInt(String(req.query.limit || '300'), 10);
+  const rawOffset = Number.parseInt(
+    String(req.query.offset || '0'),
+    10
+  );
 
-  const offset = Number.isFinite(rawOffset) && rawOffset >= 0
-    ? rawOffset
-    : 0;
+  const rawLimit = Number.parseInt(
+    String(req.query.limit || '300'),
+    10
+  );
 
-  const limit = Number.isFinite(rawLimit)
-    ? Math.max(1, Math.min(rawLimit, 500))
-    : 300;
+  const offset =
+    Number.isFinite(rawOffset) && rawOffset >= 0
+      ? rawOffset
+      : 0;
 
+  const limit =
+    Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(rawLimit, 500))
+      : 300;
+
+  // Filtro opcional por año.
+  // En Supabase la columna real se llama "ano".
   const rawYear = String(req.query.year || '').trim();
-  const year = /^\d{4}$/.test(rawYear) ? rawYear : null;
+
+  const year =
+    /^\d{4}$/.test(rawYear)
+      ? rawYear
+      : null;
 
   const apikey = req.headers.apikey;
   const authorization = req.headers.authorization;
@@ -40,8 +65,9 @@ module.exports = async function handler(req, res) {
   params.set('offset', String(offset));
   params.set('limit', String(limit));
 
+  // Si se envía ?year=2026, Supabase devolverá solo 2026.
   if (year) {
-    params.set('ANO', `eq.${year}`);
+    params.set('ano', `eq.${year}`);
   }
 
   const upstreamUrl =
@@ -61,19 +87,27 @@ module.exports = async function handler(req, res) {
 
     const body = await upstream.text();
 
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader(
+      'Cache-Control',
+      'no-store, max-age=0'
+    );
+
     res.setHeader(
       'Content-Type',
       upstream.headers.get('content-type') ||
-      'application/json; charset=utf-8'
+        'application/json; charset=utf-8'
     );
 
-    return res.status(upstream.status).send(body);
+    return res
+      .status(upstream.status)
+      .send(body);
 
   } catch (err) {
     return res.status(502).json({
       error: 'No se pudo consultar Supabase',
-      detail: String(err?.message || err)
+      detail: String(
+        err?.message || err
+      )
     });
   }
 };
