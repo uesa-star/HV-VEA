@@ -41,11 +41,16 @@ jobs:
               'same-origin URL'
           )
 
-          once(
-              "            limpiarRepositorioVeaEnMemoria();",
-              "            // Conserva la última base válida hasta que cada tabla remota haya sido validada.",
-              'transactional memory preservation'
-          )
+          marker = '        async function cargarRepositorioVeaDesdeSupabase() {'
+          start = s.find(marker)
+          if start < 0:
+              raise SystemExit('remote loader not found')
+          target = "            limpiarRepositorioVeaEnMemoria();"
+          pos = s.find(target, start)
+          if pos < 0:
+              raise SystemExit('remote loader clear not found')
+          s = s[:pos] + "            // Conserva la última base válida hasta que cada tabla remota haya sido validada." + s[pos + len(target):]
+          print('OK transactional memory preservation')
 
           old = "\n".join([
               "                } catch (err) {",
