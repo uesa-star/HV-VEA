@@ -35,36 +35,34 @@ jobs:
               s = s.replace(old, new, 1)
               print('OK', label)
 
-          # 1) Mobile/tablet fetches through Vercel same-origin, eliminating browser CORS/carrier issues.
           once(
               "            const url = `${VEA_SUPABASE_URL}/rest/v1/${encodeURIComponent(tabla)}?select=*&offset=${desde}&limit=${limite}`;",
               "            const url = `/api/vea-data?table=${encodeURIComponent(tabla)}&offset=${desde}&limit=${limite}`;",
               'same-origin URL'
           )
 
-          # 2) Never erase the valid in-memory repository before remote data succeeds.
           once(
               "            limpiarRepositorioVeaEnMemoria();",
               "            // Conserva la última base válida hasta que cada tabla remota haya sido validada.",
               'transactional memory preservation'
           )
 
-          # 3) A failed lightweight signature check must not abort startup on mobile/tablet.
-          old = """                } catch (err) {
-                    if (txt) txt.textContent = `Sin conexión · usando la última base disponible · ${formatearFechaHoraActualizacionVea(veaUltimaActualizacionDatos)}`;
-                    console.warn('[VEA Supabase] Verificación liviana no disponible:', err);
-                    return;
-                }
-"""
-          new = """                } catch (err) {
-                    if (txt) txt.textContent = `Verificación liviana no disponible · iniciando sincronización completa…`;
-                    console.warn('[VEA Supabase] Verificación liviana no disponible; continúa carga completa:', err);
-                    // No retornar: continuar con cargarRepositorioVeaDesdeSupabase().
-                }
-"""
+          old = "\n".join([
+              "                } catch (err) {",
+              "                    if (txt) txt.textContent = `Sin conexión · usando la última base disponible · ${formatearFechaHoraActualizacionVea(veaUltimaActualizacionDatos)}`;",
+              "                    console.warn('[VEA Supabase] Verificación liviana no disponible:', err);",
+              "                    return;",
+              "                }"
+          ])
+          new = "\n".join([
+              "                } catch (err) {",
+              "                    if (txt) txt.textContent = `Verificación liviana no disponible · iniciando sincronización completa…`;",
+              "                    console.warn('[VEA Supabase] Verificación liviana no disponible; continúa carga completa:', err);",
+              "                    // No retornar: continuar con cargarRepositorioVeaDesdeSupabase().",
+              "                }"
+          ])
           once(old, new, 'startup fallback without early return')
 
-          # 4) Mobile startup diagnostic status makes the active path visible.
           once(
               "            if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos en modo móvil seguro…' : 'Cargando Dashboard desde Supabase…';",
               "            if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos móviles vía Vercel…' : 'Cargando Dashboard desde Supabase…';",
