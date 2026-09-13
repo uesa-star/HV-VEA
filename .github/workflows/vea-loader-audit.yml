@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Audit loader and REST access
+      - name: Audit loader startup and REST access
         shell: bash
         run: |
           python - <<'PY'
@@ -28,19 +28,18 @@ jobs:
               'async function veaSupabaseLeerPaginaRestMovil',
               'async function veaSupabaseLeerTablaCompleta',
               'async function cargarRepositorioVeaDesdeSupabase',
+              'async function veaCacheRestaurarProcesado',
               'const veaDispositivoLimitadoF321',
               'window.onload = async function()'
           ]:
               print(needle, '=>', s.find(needle))
 
-          # Syntax-check inline JavaScript blocks.
           blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
           print('inline script blocks:', len(blocks))
           for i, block in enumerate(blocks):
               if block.strip():
                   Path(f'/tmp/block_{i}.js').write_text(block, encoding='utf-8')
 
-          # Extract and print the complete mobile reader function + table reader header/body area.
           def extract_function(name):
               start = s.find(name)
               if start < 0:
@@ -69,13 +68,28 @@ jobs:
           for name in [
               'async function veaSupabaseLeerPaginaRestMovil',
               'async function veaSupabaseLeerTablaCompleta',
-              'async function cargarRepositorioVeaDesdeSupabase'
+              'async function cargarRepositorioVeaDesdeSupabase',
+              'async function veaCacheRestaurarProcesado',
+              'window.onload = async function()'
           ]:
               f = extract_function(name)
               print('\n===', name, '===')
-              print(f[:12000])
+              print(f[:22000])
 
-          # Extract public Supabase URL/key but never print the key.
+          # Key startup markers / possible early exits.
+          print('\n=== STARTUP MARKERS ===')
+          for needle in [
+              'veaCacheRestaurarProcesado()',
+              'cargarRepositorioVeaDesdeSupabase()',
+              'return; //',
+              'return;',
+              'if (cache',
+              'veaFirmaRemotaActual',
+              'verificarSincronizacion'
+          ]:
+              hits = [m.start() for m in re.finditer(re.escape(needle), s)]
+              print(needle, hits[:30], 'count=', len(hits))
+
           murl = re.search(r"const\s+VEA_SUPABASE_URL\s*=\s*['\"]([^'\"]+)", s)
           mkey = re.search(r"const\s+VEA_SUPABASE_PUBLISHABLE_KEY\s*=\s*['\"]([^'\"]+)", s)
           if not (murl and mkey):
@@ -84,13 +98,13 @@ jobs:
           print('\n=== REST AUDIT ===')
           print('base:', base)
           for table in ['edas','iras','febriles','individual']:
-              for offset in [0,300]:
+              for offset in [0,300,600]:
                   url = f"{base}/rest/v1/{table}?select=*&offset={offset}&limit=3"
                   req = urllib.request.Request(url, headers={
                       'apikey': key,
                       'Authorization': f'Bearer {key}',
                       'Accept': 'application/json',
-                      'User-Agent': 'VEA-loader-audit/1.0'
+                      'User-Agent': 'VEA-loader-audit/2.0'
                   })
                   try:
                       with urllib.request.urlopen(req, timeout=20) as r:
