@@ -1,0 +1,33 @@
+name: VEA restaurar estructura estable
+on:
+  push:
+    paths:
+      - '.github/workflows/vea-restaurar-estructura-estable.yml'
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restaurar index estable
+        run: |
+          git show 65a3845d76d0d7af6a0ea1d26dd8c6722d906d5f:index.html > index.html
+      - name: Validar archivo
+        run: |
+          test -s index.html
+          grep -q "veaDispositivoLimitadoF321" index.html
+          grep -q "veaSupabaseLeerTablaCompleta" index.html
+      - name: Publicar restauración
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "Sin cambios"
+          else
+            git commit -m "VEA: restaurar estructura estable de KPIs y graficos"
+            git push origin HEAD:main
+          fi
