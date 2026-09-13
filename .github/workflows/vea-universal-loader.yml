@@ -93,14 +93,12 @@ jobs:
         }''')
 
           replace_function('async function veaSupabaseLeerTablaCompleta', r'''async function veaSupabaseLeerTablaCompleta(tabla) {
-            // Motor universal: todos los dispositivos usan Vercel -> /api/vea-data -> Supabase.
             const lote = 300;
             const concurrencia = 2;
             const maxIntentos = 4;
             const salida = [];
             let desdeBase = 0;
             let terminado = false;
-
             while (!terminado) {
                 const paginas = await Promise.all(Array.from({ length: concurrencia }, (_, i) => {
                     const desde = desdeBase + (i * lote);
@@ -118,7 +116,6 @@ jobs:
                         return { data: null, error: ultimoError || new Error(`No se pudo leer ${tabla}`) };
                     })();
                 }));
-
                 for (const respuesta of paginas) {
                     if (respuesta.error) throw respuesta.error;
                     const filas = Array.isArray(respuesta.data) ? respuesta.data : [];
@@ -133,7 +130,6 @@ jobs:
             return salida;
         }''')
 
-          # Reescribir el arranque para mostrar caché si existe y SIEMPRE sincronizar por el motor universal.
           replace_function('window.onload = async function()', r'''window.onload = async function() {
             aplicarEstadoVeaSidebar();
             cambiarTab('dashboard');
@@ -169,45 +165,43 @@ jobs:
             }
         }''')
 
-          # Dentro del cargador remoto: no esperar supabase-js, no crear cliente navegador y no limpiar memoria válida.
           a, b = extract_span(s, 'async function cargarRepositorioVeaDesdeSupabase')
           body = s[a:b]
-          body = re.sub(
+          body, n = re.subn(
               r"\s*const modoRestMovil = veaDispositivoLimitadoF321\(\);.*?if \(!modoRestMovil\) veaSupabaseClient \|\|= window\.supabase\.createClient\(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY\);",
-              "\n            const modoRestMovil = true; // F6.00: motor universal same-origin vía Vercel",
+              "\n            const modoRestMovil = true; // F6.00 motor universal same-origin vía Vercel",
               body,
               count=1,
               flags=re.S
           )
-          body = body.replace("if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos móviles vía Vercel…' : 'Cargando Dashboard desde Supabase…';",
-                              "if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando datos vía Vercel…';")
-          body = body.replace("if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos en modo móvil seguro…' : 'Cargando Dashboard desde Supabase…';",
-                              "if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando datos vía Vercel…';")
-          body = body.replace('            limpiarRepositorioVeaEnMemoria();\n', '            // F6.00: conservar la última base válida hasta validar cada tabla nueva.\n')
+          if n != 1:
+              raise SystemExit(f'Bloque cliente navegador no reemplazado: {n}')
+          body = body.replace("if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos móviles vía Vercel…' : 'Cargando Dashboard desde Supabase…';", "if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando datos vía Vercel…';")
+          body = body.replace("if (txtEstadoSupabase) txtEstadoSupabase.textContent = modoRestMovil ? 'Cargando datos en modo móvil seguro…' : 'Cargando Dashboard desde Supabase…';", "if (txtEstadoSupabase) txtEstadoSupabase.textContent = 'Cargando datos vía Vercel…';")
+          body = body.replace('            limpiarRepositorioVeaEnMemoria();\n', '            // F6.00 conservar la última base válida hasta validar cada tabla nueva.\n')
           s = s[:a] + body + s[b:]
 
-          # Responsive seguro y acotado.
           if 'id="veaResponsiveUniversalF600"' not in s:
-              css = r'''
-    <style id="veaResponsiveUniversalF600">
-      @media (max-width: 1023px) {
-        html, body { max-width: 100%; overflow-x: hidden; }
-        #veaAppShell > main { width: 100% !important; max-width: 100% !important; padding-left: .75rem !important; padding-right: .75rem !important; }
-        #contentDashboard,#contentDatos,#contentCasos,#contentCanal,#contentTabla,#contentHospitalizados,#contentSoat,#contentVih,#contentTbc,#contentConfiguracion { min-width: 0 !important; max-width: 100% !important; }
-        #resumenAnualDatosAcumuladosV6B,#panelCabeceraDatosAcumuladosV6B { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; transform: none !important; }
-        canvas { max-width: 100% !important; }
-        [class*="grid-cols-5"],[class*="grid-cols-4"],[class*="grid-cols-3"] { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
-      }
-      @media (max-width: 640px) {
-        #veaAppShell > main { padding-left: .5rem !important; padding-right: .5rem !important; }
-        [class*="grid-cols-5"],[class*="grid-cols-4"],[class*="grid-cols-3"],[class*="grid-cols-2"] { grid-template-columns: minmax(0,1fr) !important; }
-        #resumenAnualDatosAcumuladosV6B .vea-matriz-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
-        #resumenAnualDatosAcumuladosV6B .vea-matriz-tabla { min-width: 760px !important; }
-        button, select, input { max-width: 100%; }
-      }
-    </style>
-'''
-              s = s.replace('</head>', css + '\n</head>', 1)
+              css_lines = [
+                  '    <style id="veaResponsiveUniversalF600">',
+                  '      @media (max-width: 1023px) {',
+                  '        html, body { max-width: 100%; overflow-x: hidden; }',
+                  '        #veaAppShell > main { width: 100% !important; max-width: 100% !important; padding-left: .75rem !important; padding-right: .75rem !important; }',
+                  '        #contentDashboard,#contentDatos,#contentCasos,#contentCanal,#contentTabla,#contentHospitalizados,#contentSoat,#contentVih,#contentTbc,#contentConfiguracion { min-width: 0 !important; max-width: 100% !important; }',
+                  '        #resumenAnualDatosAcumuladosV6B,#panelCabeceraDatosAcumuladosV6B { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; transform: none !important; }',
+                  '        canvas { max-width: 100% !important; }',
+                  '        [class*="grid-cols-5"],[class*="grid-cols-4"],[class*="grid-cols-3"] { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }',
+                  '      }',
+                  '      @media (max-width: 640px) {',
+                  '        #veaAppShell > main { padding-left: .5rem !important; padding-right: .5rem !important; }',
+                  '        [class*="grid-cols-5"],[class*="grid-cols-4"],[class*="grid-cols-3"],[class*="grid-cols-2"] { grid-template-columns: minmax(0,1fr) !important; }',
+                  '        #resumenAnualDatosAcumuladosV6B .vea-matriz-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }',
+                  '        #resumenAnualDatosAcumuladosV6B .vea-matriz-tabla { min-width: 760px !important; }',
+                  '        button, select, input { max-width: 100%; }',
+                  '      }',
+                  '    </style>'
+              ]
+              s = s.replace('</head>', '\n'.join(css_lines) + '\n</head>', 1)
 
           if s == original:
               raise SystemExit('No se aplicaron cambios')
@@ -225,7 +219,8 @@ jobs:
           s = Path('index.html').read_text(encoding='utf-8')
           assert '/api/vea-data?table=' in s
           assert 'motor universal same-origin vía Vercel' in s
-          assert 'window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY)' not in s[s.find('async function cargarRepositorioVeaDesdeSupabase'):s.find('async function cargarRepositorioVeaDesdeSupabase')+9000]
+          inicio = s.find('async function cargarRepositorioVeaDesdeSupabase')
+          assert 'window.supabase.createClient(VEA_SUPABASE_URL, VEA_SUPABASE_PUBLISHABLE_KEY)' not in s[inicio:inicio+9000]
           blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
           for i, block in enumerate(blocks):
               if block.strip():
@@ -243,11 +238,7 @@ jobs:
           url = re.search(r"const\s+VEA_SUPABASE_URL\s*=\s*['\"]([^'\"]+)", s).group(1)
           key = re.search(r"const\s+VEA_SUPABASE_PUBLISHABLE_KEY\s*=\s*['\"]([^'\"]+)", s).group(1)
           for table in ['edas','iras','febriles','individual']:
-              req = urllib.request.Request(f'{url}/rest/v1/{table}?select=*&offset=0&limit=2', headers={
-                  'apikey': key,
-                  'Authorization': 'Bearer ' + key,
-                  'Accept': 'application/json'
-              })
+              req = urllib.request.Request(f'{url}/rest/v1/{table}?select=*&offset=0&limit=2', headers={'apikey': key, 'Authorization': 'Bearer ' + key, 'Accept': 'application/json'})
               with urllib.request.urlopen(req, timeout=25) as r:
                   data = json.loads(r.read().decode('utf-8'))
                   print(table, 'HTTP', r.status, 'rows', len(data))
